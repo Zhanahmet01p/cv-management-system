@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CANDIDATE
+  RECRUITER
+  ADMIN
+}
+
+enum AttributeType {
+  STRING
+  TEXT
+  IMAGE
+  NUMERIC
+  DATE
+  PERIOD
+  BOOLEAN
+  SELECT
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  role          Role      @default(CANDIDATE)
+  firstName     String?
+  lastName      String?
+  location      String?
+  photoUrl      String?
+  version       Int       @default(1)
+  
+  // Relations
+  projects      Project[]
+  cvs           CV[]
+  attributeValues UserAttributeValue[]
+  comments      Comment[]
+  likes         Like[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+}
+
+model Attribute {
+  id          String        @id @default(uuid())
+  category    String        // e.g., "Certification", "Soft Skills"
+  name        String        @unique
+  type        AttributeType
+  version     Int           @default(1)
+  
+  // Relations
+  userValues  UserAttributeValue[]
+  positions   PositionAttribute[]
+}
+
+model UserAttributeValue {
+  id          String    @id @default(uuid())
+  userId      String
+  attributeId String
+  value       Json      // Stores the actual value based on type
+  version     Int       @default(1)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, attributeId])
+}
+
+model Position {
+  id              String    @id @default(uuid())
+  title           String
+  description     String
+  accessRules     Json?     // Rules for who can see/apply
+  maxProjects     Int       @default(3)
+  version         Int       @default(1)
+  
+  // Relations
+  attributes      PositionAttribute[]
+  cvs             CV[]
+  comments        Comment[]
+  tags            PositionTag[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model PositionAttribute {
+  positionId  String
+  attributeId String
+  
+  position    Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@id([positionId, attributeId])
+}
+
+model PositionTag {
+  id          String    @id @default(uuid())
+  positionId  String
+  name        String    // Technology tag name
+  
+  position    Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  startDate   DateTime
+  endDate     DateTime?
+  description String    @db.Text // Markdown
+  tags        String[]  // Tech tags
+  version     Int       @default(1)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CV {
+  id          String    @id @default(uuid())
+  userId      String
+  positionId  String
+  status      CVStatus  @default(DRAFT)
+  version     Int       @default(1)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position    Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  likes       Like[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, positionId])
+}
+
+enum CVStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Comment {
+  id          String    @id @default(uuid())
+  positionId  String
+  userId      String
+  text        String    @db.Text // Markdown
+  createdAt   DateTime  @default(now())
+
+  position    Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  cvId        String
+  userId      String    // Recruiter ID
+
+  cv          CV        @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cvId, userId])
+}
