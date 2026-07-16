@@ -1,13 +1,29 @@
 const express = require('express');
 const cors = require('cors');
+const passport = require('passport');
 require('dotenv').config();
+require('./passport'); // Initialize passport config
+
+const attributeRoutes = require('./routes/attributeRoutes');
+const authRoutes = require('./routes/authRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const positionRoutes = require('./routes/positionRoutes');
+const cvRoutes = require('./routes/cvRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json()); // Чтобы сервер понимал JSON в запросах
+app.use(express.json());
+app.use(passport.initialize());
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/attributes', attributeRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/positions', positionRoutes);
+app.use('/api/cvs', cvRoutes);
 
 // Базовый тестовый роут
 app.get('/api/health', (req, res) => {

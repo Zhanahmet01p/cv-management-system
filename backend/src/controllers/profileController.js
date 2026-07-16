@@ -1,0 +1,144 @@
+const { prisma, updateWithOptimisticLock } = require('../db');
+
+// Get full profile data
+exports.getProfile = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        attributeValues: {
+          include: {
+            attribute: true
+          }
+        },
+        projects: true,
+        cvs: {
+          include: {
+            position: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update "Me" section (built-in attributes)
+exports.updateMe = async (req, res) => {
+  const userId = req.user.id;
+  const { firstName, lastName, location, photoUrl, version } = req.body;
+
+  try {
+    const updatedUser = await updateWithOptimisticLock('user', {
+      where: { id: userId, version },
+      data: { firstName, lastName, location, photoUrl }
+    });
+    res.json(updatedUser);
+  } catch (error) {
+    if (error.message === 'VERSION_CONFLICT') {
+      return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Add or update an attribute value in "Info" section
+exports.upsertAttributeInfo = async (req, res) => {
+  const userId = req.user.id;
+  const { attributeId, value, version } = req.body;
+
+  try {
+    // If version is provided, we try an update with lock
+    if (version) {
+      const updated = await updateWithOptimisticLock('userAttributeValue', {
+        where: { 
+          userId_attributeId: { userId, attributeId },
+          version 
+        },
+        data: { value }
+      });
+      return res.json(updated);
+    } else {
+      // First time setting this attribute
+      const created = await prisma.userAttributeValue.create({
+        data: {
+          userId,
+          attributeId,
+          value,
+          version: 1
+        }
+      });
+      return res.json(created);
+    }
+  } catch (error) {
+    if (error.message === 'VERSION_CONFLICT' || error.code === 'P2025') {
+      return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Projects management
+exports.addProject = async (req, res) => {
+  const userId = req.user.id;
+  const { name, startDate, endDate, description, tags } = req.body;
+
+  try {
+    const project = await prisma.project.create({
+      data: {
+        userId,
+        name,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        description,
+        tags
+      }
+    });
+    res.status(201).json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateProject = async (req, res) => {
+  const { id } = req.params;
+  const { name, startDate, endDate, description, tags, version } = req.body;
+
+  try {
+    const updated = await updateWithOptimisticLock('project', {
+      where: { id, version },
+      data: {
+        name,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        description,
+        tags
+      }
+    });
+    res.json(updated);
+  } catch (error) {
+    if (error.message === 'VERSION_CONFLICT') {
+      return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteProject = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.project.delete({ where: { id } });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
