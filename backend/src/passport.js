@@ -1,44 +1,53 @@
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { prisma } = require('./db');
 
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/api/auth/google/callback"
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      const email = profile.emails[0].value;
-      let user = await prisma.user.findUnique({
-        where: { email }
-      });
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email,
-            firstName: profile.name.givenName,
-            lastName: profile.name.familyName,
-            photoUrl: profile.photos[0].value,
-            googleId: profile.id,
-            role: 'CANDIDATE' // Default role
-          }
+const isGoogleAuthEnabled = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+
+if (isGoogleAuthEnabled) {
+  const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+  passport.use(new GoogleStrategy({
+      clientID: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback"
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails[0].value;
+        let user = await prisma.user.findUnique({
+          where: { email }
         });
-      } else if (!user.googleId) {
-        // Link google account if email matches but googleId is missing
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { googleId: profile.id }
-        });
+
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email,
+              firstName: profile.name.givenName,
+              lastName: profile.name.familyName,
+              photoUrl: profile.photos[0].value,
+              googleId: profile.id,
+              role: 'CANDIDATE'
+            }
+          });
+        } else if (!user.googleId) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { googleId: profile.id }
+          });
+        }
+
+        return done(null, user);
+      } catch (err) {
+        return done(err, null);
       }
-
-      return done(null, user);
-    } catch (err) {
-      return done(err, null);
     }
-  }
-));
+  ));
+} else {
+  console.warn('Google OAuth is disabled: GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET are not set.');
+}
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -52,3 +61,8 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
+
+module.exports = {
+  passport,
+  isGoogleAuthEnabled
+};

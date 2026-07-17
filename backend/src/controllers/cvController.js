@@ -64,6 +64,10 @@ exports.getCVData = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    if (viewerRole === 'RECRUITER' && cv.status !== 'PUBLISHED') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     // ASSEMBLY LOGIC (Killer Feature #3)
     // Filter projects by position tags
     const positionTags = cv.position.tags.map(t => t.name.toLowerCase());
@@ -115,18 +119,27 @@ exports.toggleLike = async (req, res) => {
 
 // Publish CV
 exports.publishCV = async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const { version } = req.body;
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { version } = req.body;
 
-    try {
-        const updated = await updateWithOptimisticLock('cV', {
-            where: { id, userId, version },
-            data: { status: 'PUBLISHED' }
-        });
-        res.json(updated);
-    } catch (error) {
-        if (error.message === 'VERSION_CONFLICT') return res.status(409).json({ error: 'VERSION_CONFLICT' });
-        res.status(500).json({ error: error.message });
+  try {
+    const cv = await prisma.cV.findUnique({ where: { id } });
+    if (!cv) {
+      return res.status(404).json({ error: 'CV not found' });
     }
-}
+
+    if (req.user.role !== 'ADMIN' && cv.userId !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const updated = await updateWithOptimisticLock('cV', {
+      where: { id, version },
+      data: { status: 'PUBLISHED' }
+    });
+    res.json(updated);
+  } catch (error) {
+    if (error.message === 'VERSION_CONFLICT') return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    res.status(500).json({ error: error.message });
+  }
+};

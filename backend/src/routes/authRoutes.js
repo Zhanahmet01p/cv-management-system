@@ -4,22 +4,27 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secure-secret';
+const isGoogleAuthEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
-router.get('/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+router.get('/google', (req, res, next) => {
+  if (!isGoogleAuthEnabled) {
+    return res.status(501).json({ error: 'Google OAuth is not configured' });
+  }
+  next();
+}, passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/google/callback', 
-  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+router.get('/google/callback', (req, res, next) => {
+  if (!isGoogleAuthEnabled) {
+    return res.status(501).json({ error: 'Google OAuth is not configured' });
+  }
+  next();
+}, passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
-    // Successful authentication, create JWT
     const token = jwt.sign(
       { id: req.user.id, role: req.user.role },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-    
-    // Redirect to frontend with token (or set cookie)
     res.redirect(`${process.env.FRONTEND_URL}/login-success?token=${token}`);
   }
 );

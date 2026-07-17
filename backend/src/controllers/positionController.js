@@ -73,10 +73,8 @@ exports.updatePosition = async (req, res) => {
   const { title, description, accessRules, maxProjects, attributeIds, tags, version } = req.body;
 
   try {
-    // We use a transaction to update the position and its relations
     const updated = await prisma.$transaction(async (tx) => {
-      // 1. Update basic fields with version check
-      const pos = await tx.position.update({
+      const updateResult = await tx.position.updateMany({
         where: { id, version },
         data: {
           title,
@@ -87,28 +85,42 @@ exports.updatePosition = async (req, res) => {
         }
       });
 
-      // 2. Update attributes (re-sync)
-      if (attributeIds) {
+      if (updateResult.count === 0) {
+        throw new Error('VERSION_CONFLICT');
+      }
+
+      if (Array.isArray(attributeIds)) {
         await tx.positionAttribute.deleteMany({ where: { positionId: id } });
-        await tx.positionAttribute.createMany({
-          data: attributeIds.map(attrId => ({ positionId: id, attributeId: attrId }))
-        });
+        if (attributeIds.length > 0) {
+          await tx.positionAttribute.createMany({
+            data: attributeIds.map(attrId => ({ positionId: id, attributeId: attrId }))
+          });
+        }
       }
 
-      // 3. Update tags (re-sync)
-      if (tags) {
+      if (Array.isArray(tags)) {
         await tx.positionTag.deleteMany({ where: { positionId: id } });
-        await tx.positionTag.createMany({
-          data: tags.map(tag => ({ positionId: id, name: tag }))
-        });
+        if (tags.length > 0) {
+          await tx.positionTag.createMany({
+            data: tags.map(tag => ({ positionId: id, name: tag }))
+          });
+        }
       }
 
-      return pos;
+      return tx.position.findUnique({
+        where: { id },
+        include: {
+          attributes: { include: { attribute: true } },
+          tags: true
+        }
+      });
     });
 
     res.json(updated);
   } catch (error) {
-    if (error.code === 'P2025') return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    if (error.message === 'VERSION_CONFLICT' || error.code === 'P2025') {
+      return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
     res.status(500).json({ error: error.message });
   }
 };

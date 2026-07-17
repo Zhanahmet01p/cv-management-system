@@ -1,4 +1,4 @@
-const { prisma } = require('../db');
+const { prisma, updateWithOptimisticLock } = require('../db');
 
 exports.getAllAttributes = async (req, res) => {
   try {
@@ -31,19 +31,21 @@ exports.updateAttribute = async (req, res) => {
   const { category, name, type, version } = req.body;
   
   try {
-    const updated = await prisma.attribute.update({
+    const updated = await updateWithOptimisticLock('attribute', {
       where: { id, version },
-      data: { 
-        category, 
-        name, 
-        type,
-        version: { increment: 1 }
+      data: {
+        category,
+        name,
+        type
       }
     });
     res.json(updated);
   } catch (error) {
-    if (error.code === 'P2025') {
+    if (error.message === 'VERSION_CONFLICT') {
       return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Attribute name already exists' });
     }
     res.status(500).json({ error: error.message });
   }

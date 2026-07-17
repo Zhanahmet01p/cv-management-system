@@ -4,37 +4,41 @@ const prisma = new PrismaClient();
 
 /**
  * Helper for optimistic locking.
- * Use this when you want to update a record while ensuring it hasn't changed.
+ * Performs an update only when the record version matches the provided version.
  * @param {string} model - Prisma model name (e.g., 'user')
- * @param {object} args - Standard prisma update args, must include version in 'where'
+ * @param {object} args - Update arguments, must include version in 'where'
+ * @param {object} [args.select]
+ * @param {object} [args.include]
  */
 const updateWithOptimisticLock = async (model, args) => {
-  const { where, data, ...rest } = args;
-  
-  if (where.version === undefined) {
+  const { where, data, select, include } = args;
+
+  if (!where || where.version === undefined) {
     throw new Error('Optimistic lock update requires a version in the where clause');
   }
 
-  try {
-    const updated = await prisma[model].update({
-      where: {
-        ...where,
-      },
-      data: {
-        ...data,
-        version: { increment: 1 }
-      },
-      ...rest
-    });
-    return updated;
-  } catch (error) {
-    // P2025 is Prisma's error code for "Record to update not found"
-    // Which happens if the version doesn't match
-    if (error.code === 'P2025') {
-      throw new Error('VERSION_CONFLICT');
+  const whereWithoutVersion = { ...where };
+  delete whereWithoutVersion.version;
+
+  const result = await prisma[model].updateMany({
+    where,
+    data: {
+      ...data,
+      version: { increment: 1 }
     }
-    throw error;
+  });
+
+  if (result.count === 0) {
+    throw new Error('VERSION_CONFLICT');
   }
+
+  const updated = await prisma[model].findFirst({
+    where: whereWithoutVersion,
+    select,
+    include
+  });
+
+  return updated;
 };
 
 module.exports = {

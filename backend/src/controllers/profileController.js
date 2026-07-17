@@ -57,28 +57,36 @@ exports.upsertAttributeInfo = async (req, res) => {
   const { attributeId, value, version } = req.body;
 
   try {
-    // If version is provided, we try an update with lock
     if (version) {
       const updated = await updateWithOptimisticLock('userAttributeValue', {
-        where: { 
+        where: {
           userId_attributeId: { userId, attributeId },
-          version 
+          version
         },
         data: { value }
       });
       return res.json(updated);
-    } else {
-      // First time setting this attribute
-      const created = await prisma.userAttributeValue.create({
-        data: {
-          userId,
-          attributeId,
-          value,
-          version: 1
-        }
-      });
-      return res.json(created);
     }
+
+    const existing = await prisma.userAttributeValue.findUnique({
+      where: {
+        userId_attributeId: { userId, attributeId }
+      }
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'VERSION_REQUIRED' });
+    }
+
+    const created = await prisma.userAttributeValue.create({
+      data: {
+        userId,
+        attributeId,
+        value,
+        version: 1
+      }
+    });
+    return res.json(created);
   } catch (error) {
     if (error.message === 'VERSION_CONFLICT' || error.code === 'P2025') {
       return res.status(409).json({ error: 'VERSION_CONFLICT' });
@@ -135,8 +143,17 @@ exports.updateProject = async (req, res) => {
 
 exports.deleteProject = async (req, res) => {
   const { id } = req.params;
+  const version = parseInt(req.query.version || req.body.version, 10);
+
+  if (!version) {
+    return res.status(400).json({ error: 'VERSION_REQUIRED' });
+  }
+
   try {
-    await prisma.project.delete({ where: { id } });
+    const result = await prisma.project.deleteMany({ where: { id, version } });
+    if (result.count === 0) {
+      return res.status(409).json({ error: 'VERSION_CONFLICT' });
+    }
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
