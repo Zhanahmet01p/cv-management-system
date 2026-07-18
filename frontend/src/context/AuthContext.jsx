@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { apiUrl } from '../api.js';
 
 const AuthContext = createContext();
 
@@ -8,20 +10,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-      fetchUser();
-    } else {
-      localStorage.removeItem('token');
-      setUser(null);
-      setLoading(false);
-    }
-  }, [token]);
-
   const fetchUser = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/auth/me', {
+      const res = await axios.get(`${apiUrl}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(res.data);
@@ -33,14 +24,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('token', token);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchUser();
+    } else {
+      localStorage.removeItem('token');
+      setUser(null);
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  
   const login = (newToken) => setToken(newToken);
   const logout = () => setToken(null);
 
+  const devLogin = async (role) => {
+    try {
+      const res = await axios.post(`${apiUrl}/api/auth/dev-login`, { role });
+      const { token: newToken, user: newUser } = res.data;
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
+      setUser(newUser);
+      return newUser;
+    } catch (err) {
+      console.error('Dev login failed', err);
+      throw err;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, setUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, setUser, devLogin }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => useContext(AuthContext);
+

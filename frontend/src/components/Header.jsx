@@ -1,63 +1,79 @@
-import React from 'react';
+import { useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Sun, Moon, Globe, Zap, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
-import { Sun, Moon, Search, Globe, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useSearch } from '../context/SearchContext';
+import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const { searchQuery, setSearchQuery } = useSearch();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const inputRef = useRef(null);
 
-  const changeLanguage = () => {
-    const nextLng = i18n.language === 'en' ? 'ru' : 'en';
-    i18n.changeLanguage(nextLng);
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'en' ? 'ru' : 'en');
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-slate-950 dark:border-slate-800">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+    <header className="app-header">
+      <div className="header-inner">
         {/* Logo */}
-        <Link to="/" className="text-xl font-bold text-blue-600 dark:text-blue-400 shrink-0">
-          CV-Tech
+        <Link to="/" className="app-logo" id="header-logo">
+          <Zap size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem', fill: 'currentColor' }} />
+          CV·Tech
         </Link>
 
-        {/* Full-text Search - Mandatory Requirement */}
-        <div className="flex-1 max-w-xl relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
+        {/* Global Search */}
+        <div className="search-input-wrap">
+          <Search size={15} />
           <input
+            id="global-search"
+            ref={inputRef}
             type="text"
             placeholder={t('common.search')}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 dark:bg-slate-900 dark:border-slate-700 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
+        {/* Right actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
           <button
-            onClick={changeLanguage}
-            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300"
+            id="btn-toggle-lang"
+            className="btn btn-ghost btn-icon"
+            onClick={toggleLang}
             title="Toggle Language"
           >
-            <Globe className="h-5 w-5" />
-          </button>
-          
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300"
-            title="Toggle Theme"
-          >
-            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            <Globe size={17} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+              {i18n.language === 'en' ? 'EN' : 'RU'}
+            </span>
           </button>
 
-          <Link
-            to="/profile"
-            className="flex items-center gap-2 ml-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300"
+          <button
+            id="btn-toggle-theme"
+            className="btn btn-ghost btn-icon"
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
           >
-            <User className="h-5 w-5" />
-            <span className="hidden md:inline text-sm font-medium">{t('nav.profile')}</span>
-          </Link>
+            {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
+          </button>
+          
+          {!user && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => navigate('/login')}
+              style={{ padding: '0.35rem 0.8rem', marginLeft: '0.5rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}
+            >
+              <LogIn size={15} />
+              {t('nav.login')}
+            </button>
+          )}
         </div>
       </div>
     </header>

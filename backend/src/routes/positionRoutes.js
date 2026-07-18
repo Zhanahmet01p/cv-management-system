@@ -13,4 +13,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('RECRUITER', 'ADMIN'), positi
 router.post('/:id/duplicate', authenticateJWT, authorizeRoles('RECRUITER', 'ADMIN'), positionController.duplicatePosition);
 router.delete('/:id', authenticateJWT, authorizeRoles('RECRUITER', 'ADMIN'), positionController.deletePosition);
 
+// Discussions - any authenticated user can comment on a position
+router.post('/:id/comments', authenticateJWT, positionController.createComment);
+
 module.exports = router;

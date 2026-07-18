@@ -1,138 +1,567 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { fetchPositions, createCV } from '../api.js';
+import { useEffect, useMemo, useState, useCallback, Fragment } from 'react';
+import {
+  fetchPositions, createCV, createPosition, updatePosition,
+  deletePosition, duplicatePosition, fetchAttributes
+} from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useSearch } from '../context/SearchContext.jsx';
 import { useTranslation } from 'react-i18next';
+import {
+  Plus, Copy, Trash2, Edit3, FileText, Check, X, ChevronDown, ChevronUp, Loader2, Briefcase
+} from 'lucide-react';
 
-const Positions = () => {
+/* ─────────── Position Modal ─────────── */
+const PositionModal = ({ position, attributes, onClose, onSaved }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const [positions, setPositions] = useState([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const isEdit = !!position?.id;
+
+  const [form, setForm] = useState({
+    title: position?.title || '',
+    description: position?.description || '',
+    maxProjects: position?.maxProjects ?? 3,
+    accessRules: position?.accessRules || [],
+    selectedAttrs: (position?.attributes || []).map(a => a.attributeId || a.attribute?.id),
+    tags: (position?.tags || []).map(t => t.name).join(', '),
+    version: position?.version ?? 1,
+  });
+
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [actionMessage, setActionMessage] = useState('');
-  const [selectedPositionId, setSelectedPositionId] = useState(null);
+  const [attrSearch, setAttrSearch] = useState('');
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetchPositions();
-        setPositions(res.data);
-      } catch (err) {
-        setError('Unable to load positions.');
-      } finally {
-        setLoading(false);
-      }
+  const visibleAttrs = useMemo(() =>
+    attributes.filter(a =>
+      a.name.toLowerCase().includes(attrSearch.toLowerCase()) ||
+      a.category.toLowerCase().includes(attrSearch.toLowerCase())
+    ),
+    [attributes, attrSearch]
+  );
+
+  const toggleAttr = (id) => {
+    setForm(prev => ({
+      ...prev,
+      selectedAttrs: prev.selectedAttrs.includes(id)
+        ? prev.selectedAttrs.filter(x => x !== id)
+        : [...prev.selectedAttrs, id]
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    const payload = {
+      title: form.title,
+      description: form.description,
+      maxProjects: Number(form.maxProjects),
+      attributeIds: form.selectedAttrs,
+      tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
+      version: form.version,
     };
-    load();
-  }, []);
-
-  const visiblePositions = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-    if (!normalized) return positions;
-    return positions.filter((position) => {
-      return (
-        position.title.toLowerCase().includes(normalized) ||
-        position.description.toLowerCase().includes(normalized) ||
-        position.tags.some((tag) => tag.name.toLowerCase().includes(normalized))
-      );
-    });
-  }, [positions, search]);
-
-  const handleCreateCV = async (positionId) => {
-    if (!user) {
-      setActionMessage('Please sign in to generate a CV.');
-      return;
-    }
-    if (user.role !== 'CANDIDATE') {
-      setActionMessage('Only candidates can generate CVs.');
-      return;
-    }
-    setSelectedPositionId(positionId);
-    setActionMessage('Creating CV...');
-
     try {
-      await createCV(positionId);
-      setActionMessage('CV created successfully. You can open it from your profile.');
-    } catch (err) {
-      if (err.response?.data?.error === 'CV already exists for this position') {
-        setActionMessage('You already have a CV for this position. Open it from your profile.');
-      } else if (err.response?.status === 401) {
-        setActionMessage('Please sign in to create a CV.');
+      if (isEdit) {
+        await updatePosition(position.id, payload);
       } else {
-        setActionMessage('Unable to create CV at this time.');
+        await createPosition(payload);
+      }
+      onSaved();
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setError('Version conflict – someone else edited this. Please reload.');
+      } else {
+        setError(err.response?.data?.error || 'Save failed');
       }
     } finally {
-      setSelectedPositionId(null);
+      setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">{t('nav.positions')}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Browse position templates and review shared requirements.</p>
-          </div>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('common.search')}
-            className="w-full max-w-sm rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm outline-none transition hover:border-slate-400 focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-          />
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        <div className="modal-header">
+          <h2 className="section-title">
+            {isEdit ? t('positions.editPosition') : t('positions.createPosition')}
+          </h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {loading && <div className="py-8 text-center text-slate-600 dark:text-slate-300">Loading positions...</div>}
-        {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div>}
-        {actionMessage && !loading && (
-          <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-            {actionMessage}
-          </div>
-        )}
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {error && <div className="alert alert-danger">{error}</div>}
 
-        {!loading && !error && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto border-separate border-spacing-y-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label className="label">{t('common.create') === 'Create' ? 'Title' : 'Название'}</label>
+                <input className="input" required value={form.title}
+                  onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">{t('positions.maxProjects')}</label>
+                <input className="input" type="number" min={0} max={20} value={form.maxProjects}
+                  onChange={e => setForm(p => ({ ...p, maxProjects: e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Description</label>
+              <textarea className="textarea" required rows={3} value={form.description}
+                onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+
+            <div>
+              <label className="label">Technology Tags (comma-separated)</label>
+              <input className="input" placeholder="React, Node.js, PostgreSQL"
+                value={form.tags}
+                onChange={e => setForm(p => ({ ...p, tags: e.target.value }))} />
+            </div>
+
+            {/* Attributes from library */}
+            <div>
+              <label className="label">{t('positions.attributes')}</label>
+              <input className="input" placeholder="Search attributes by name or category…"
+                value={attrSearch}
+                onChange={e => setAttrSearch(e.target.value)}
+                style={{ marginBottom: '0.5rem' }} />
+              <div style={{
+                maxHeight: '180px', overflowY: 'auto', border: '1.5px solid var(--color-border)',
+                borderRadius: 'var(--radius)', padding: '0.5rem',
+                display: 'flex', flexWrap: 'wrap', gap: '0.35rem'
+              }}>
+                {visibleAttrs.length === 0 ? (
+                  <span style={{ color: 'var(--color-text-3)', fontSize: '0.85rem' }}>
+                    No attributes found
+                  </span>
+                ) : visibleAttrs.map(a => {
+                  const selected = form.selectedAttrs.includes(a.id);
+                  return (
+                    <button
+                      key={a.id} type="button"
+                      onClick={() => toggleAttr(a.id)}
+                      className={`tag${selected ? ' tag-active' : ''}`}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {selected && <Check size={11} />}
+                      {a.name}
+                      <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({a.type})</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {form.selectedAttrs.length > 0 && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--color-primary)' }}>
+                  {form.selectedAttrs.length} attribute(s) selected
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+              {saving ? t('common.loading') : (isEdit ? t('common.update') : t('common.create'))}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────── Positions Page ─────────── */
+const Positions = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { searchQuery } = useSearch();
+
+  const [positions, setPositions]     = useState([]);
+  const [attributes, setAttributes]   = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [selected, setSelected]       = useState(new Set());
+  const [toast, setToast]             = useState('');
+  const [modal, setModal]             = useState(null); // null | 'create' | position-object
+  const [actionLoading, setActionLoading] = useState('');
+  const [expandedId, setExpandedId]   = useState(null);
+
+  const isRecruiter = user?.role === 'RECRUITER' || user?.role === 'ADMIN';
+  const isCandidate = user?.role === 'CANDIDATE';
+
+  const load = useCallback(async () => {
+    try {
+      const [pRes, aRes] = await Promise.all([fetchPositions(), fetchAttributes()]);
+      setPositions(pRes.data);
+      setAttributes(aRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const fetchAll = async () => {
+      try {
+        const [pRes, aRes] = await Promise.all([fetchPositions(), fetchAttributes()]);
+        if (active) {
+          setPositions(pRes.data);
+          setAttributes(aRes.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchAll();
+    return () => { active = false; };
+  }, []);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 4000);
+  };
+
+  const visible = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return positions;
+    return positions.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      (p.tags || []).some(t => t.name.toLowerCase().includes(q))
+    );
+  }, [positions, searchQuery]);
+
+  const allSelected = visible.length > 0 && visible.every(p => selected.has(p.id));
+  const someSelected = selected.size > 0;
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(visible.map(p => p.id)));
+    }
+  };
+
+  // Generate CV (single position)
+  const handleGenerateCV = async (positionId) => {
+    if (!user) { showToast(t('positions.signInRequired')); return; }
+    if (!isCandidate) { showToast(t('positions.candidatesOnly')); return; }
+    setActionLoading(positionId);
+    try {
+      await createCV(positionId);
+      showToast(t('positions.cvCreated'));
+    } catch (err) {
+      if (err.response?.data?.error === 'CV already exists for this position') {
+        showToast(t('positions.cvExists'));
+      } else {
+        showToast(err.response?.data?.error || 'Error');
+      }
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${selected.size} position(s)?`)) return;
+    setActionLoading('delete');
+    try {
+      await Promise.all([...selected].map(id => deletePosition(id)));
+      showToast(`Deleted ${selected.size} position(s)`);
+      setSelected(new Set());
+      await load();
+    } catch {
+      showToast('Delete failed');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (selected.size !== 1) return;
+    const [id] = selected;
+    setActionLoading('dup');
+    try {
+      await duplicatePosition(id);
+      showToast('Position duplicated');
+      setSelected(new Set());
+      await load();
+    } catch {
+      showToast('Duplicate failed');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleEdit = () => {
+    if (selected.size !== 1) return;
+    const [id] = selected;
+    const pos = positions.find(p => p.id === id);
+    if (pos) setModal(pos);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Toast */}
+      {toast && (
+        <div className="alert alert-info" style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 200, maxWidth: '360px', animation: 'toolbar-in 0.2s ease' }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+        <div>
+          <h1 className="page-title">{t('positions.title')}</h1>
+          <p style={{ color: 'var(--color-text-3)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+            {t('positions.subtitle')}
+          </p>
+        </div>
+        {isRecruiter && (
+          <button id="btn-create-position" className="btn btn-primary" onClick={() => setModal('create')}>
+            <Plus size={16} />
+            {t('positions.createPosition')}
+          </button>
+        )}
+      </div>
+
+      {/* Contextual Toolbar (appears on selection) */}
+      {someSelected && (
+        <div className="toolbar">
+          <span className="toolbar-selection">{selected.size} selected</span>
+
+          {isCandidate && selected.size === 1 && (
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={!!actionLoading}
+              onClick={() => handleGenerateCV([...selected][0])}
+            >
+              <FileText size={14} />
+              {t('positions.generateCV')}
+            </button>
+          )}
+
+          {isRecruiter && (
+            <>
+              {selected.size === 1 && (
+                <>
+                  <button className="btn btn-outline btn-sm" onClick={handleEdit}>
+                    <Edit3 size={14} />
+                    {t('common.edit')}
+                  </button>
+                  <button className="btn btn-outline btn-sm" disabled={!!actionLoading} onClick={handleDuplicate}>
+                    <Copy size={14} />
+                    {t('common.duplicate')}
+                  </button>
+                </>
+              )}
+              <button className="btn btn-danger btn-sm" disabled={!!actionLoading} onClick={handleDelete}>
+                <Trash2 size={14} />
+                {t('common.delete')} ({selected.size})
+              </button>
+            </>
+          )}
+
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto' }}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: '2.5rem', borderRadius: 'var(--radius)' }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">CVs</th>
-                  <th className="px-4 py-3">Tags</th>
-                  <th className="px-4 py-3">Action</th>
+                <tr>
+                  <th style={{ width: '3rem' }}>
+                    <input
+                      id="chk-select-all"
+                      type="checkbox"
+                      className="row-check"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                  <th>Title</th>
+                  <th>Description</th>
+                  <th>{t('positions.attributes')}</th>
+                  <th>Tags</th>
+                  <th style={{ textAlign: 'right' }}>{t('positions.cvCount')}</th>
+                  <th style={{ width: '3rem' }} />
                 </tr>
               </thead>
               <tbody>
-                {visiblePositions.map((position) => (
-                  <tr key={position.id} className="group rounded-2xl bg-slate-50 transition hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800">
-                    <td className="px-4 py-4 align-top font-semibold text-slate-900 dark:text-white">{position.title}</td>
-                    <td className="px-4 py-4 align-top text-sm text-slate-600 dark:text-slate-300">{position.description}</td>
-                    <td className="px-4 py-4 align-top text-sm text-slate-600 dark:text-slate-300">{position._count?.cvs ?? 0}</td>
-                    <td className="px-4 py-4 align-top text-sm text-slate-600 dark:text-slate-300">
-                      {position.tags.map((tag) => tag.name).join(', ')}
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <button
-                        onClick={() => handleCreateCV(position.id)}
-                        disabled={selectedPositionId === position.id}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                      >
-                        {selectedPositionId === position.id ? 'Working…' : 'Generate CV'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {visiblePositions.length === 0 && (
+                {visible.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No positions match your filter.</td>
+                    <td colSpan={7}>
+                      <div className="empty-state">
+                        <div className="empty-icon"><Briefcase size={22} /></div>
+                        <div style={{ fontWeight: 600 }}>{t('positions.noPositions')}</div>
+                      </div>
+                    </td>
                   </tr>
-                )}
+                ) : visible.map(p => (
+                  <Fragment key={p.id}>
+                    <tr
+                      className={selected.has(p.id) ? 'selected' : ''}
+                      onClick={() => toggleSelect(p.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="row-check"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
+                      <td className="cell-primary">{p.title}</td>
+                      <td style={{ maxWidth: '260px' }}>
+                        <span style={{
+                          display: '-webkit-box', WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                          fontSize: '0.83rem'
+                        }}>
+                          {p.description}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge badge-primary">{p.attributes?.length ?? 0}</span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                          {(p.tags || []).slice(0, 3).map(tag => (
+                            <span key={tag.id} className="tag">{tag.name}</span>
+                          ))}
+                          {(p.tags || []).length > 3 && (
+                            <span className="tag">+{p.tags.length - 3}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="badge badge-neutral">{p._count?.cvs ?? 0}</span>
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
+                          onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                        >
+                          {expandedId === p.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                    {/* Expanded row with details */}
+                    {expandedId === p.id && (
+                      <tr style={{ background: 'var(--color-surface-2)' }}>
+                        <td colSpan={7} style={{ padding: '1rem 1rem 1rem 3rem' }}>
+                          <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                            <div>
+                              <div className="label">Full Description</div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)', maxWidth: '400px' }}>
+                                {p.description}
+                              </div>
+                            </div>
+                            {p.attributes?.length > 0 && (
+                              <div>
+                                <div className="label">Required Attributes</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                  {p.attributes.map(a => (
+                                    <span key={a.attributeId} className="badge badge-accent">
+                                      {a.attribute?.name || a.attributeId}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <div className="label">Max Projects in CV</div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)' }}>{p.maxProjects}</div>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: '0.875rem', display: 'flex', gap: '0.5rem' }}>
+                            {isCandidate && (
+                              <button
+                                className="btn btn-primary btn-sm"
+                                disabled={actionLoading === p.id}
+                                onClick={() => handleGenerateCV(p.id)}
+                              >
+                                {actionLoading === p.id
+                                  ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                                  : <FileText size={14} />}
+                                {t('positions.generateCV')}
+                              </button>
+                            )}
+                            {isRecruiter && (
+                              <>
+                                <button className="btn btn-outline btn-sm" onClick={() => { setSelected(new Set([p.id])); setModal(p); }}>
+                                  <Edit3 size={14} /> {t('common.edit')}
+                                </button>
+                                <button className="btn btn-outline btn-sm" onClick={async () => {
+                                  setActionLoading('dup');
+                                  await duplicatePosition(p.id);
+                                  await load();
+                                  setActionLoading('');
+                                  showToast('Duplicated!');
+                                }}>
+                                  <Copy size={14} /> {t('common.duplicate')}
+                                </button>
+                                <button className="btn btn-danger btn-sm" onClick={async () => {
+                                  if (!window.confirm('Delete this position?')) return;
+                                  await deletePosition(p.id);
+                                  await load();
+                                  showToast('Deleted');
+                                }}>
+                                  <Trash2 size={14} /> {t('common.delete')}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      {modal && (
+        <PositionModal
+          position={modal === 'create' ? null : modal}
+          attributes={attributes}
+          onClose={() => { setModal(null); setSelected(new Set()); }}
+          onSaved={async () => {
+            setModal(null);
+            setSelected(new Set());
+            await load();
+            showToast('Position saved!');
+          }}
+        />
+      )}
     </div>
   );
 };

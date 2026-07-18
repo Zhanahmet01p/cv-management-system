@@ -35,6 +35,7 @@ model User {
   googleId      String?   @unique
   facebookId    String?   @unique
   version       Int       @default(1)
+  blocked       Boolean   @default(false)
   
   // Relations
   projects      Project[]

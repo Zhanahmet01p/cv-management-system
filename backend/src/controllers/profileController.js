@@ -57,34 +57,34 @@ exports.upsertAttributeInfo = async (req, res) => {
   const { attributeId, value, version } = req.body;
 
   try {
-    if (version) {
-      const updated = await updateWithOptimisticLock('userAttributeValue', {
-        where: {
-          userId_attributeId: { userId, attributeId },
-          version
-        },
-        data: { value }
+    // Try to find existing first
+    const existing = await prisma.userAttributeValue.findUnique({
+      where: { userId_attributeId: { userId, attributeId } }
+    });
+
+    if (existing) {
+      // Update with optimistic lock
+      const lockVersion = version || existing.version;
+      const result = await prisma.userAttributeValue.updateMany({
+        where: { userId, attributeId, version: lockVersion },
+        data: { value, version: { increment: 1 } }
+      });
+
+      if (result.count === 0) {
+        return res.status(409).json({ error: 'VERSION_CONFLICT' });
+      }
+
+      const updated = await prisma.userAttributeValue.findUnique({
+        where: { userId_attributeId: { userId, attributeId } },
+        include: { attribute: true }
       });
       return res.json(updated);
     }
 
-    const existing = await prisma.userAttributeValue.findUnique({
-      where: {
-        userId_attributeId: { userId, attributeId }
-      }
-    });
-
-    if (existing) {
-      return res.status(400).json({ error: 'VERSION_REQUIRED' });
-    }
-
+    // Create new
     const created = await prisma.userAttributeValue.create({
-      data: {
-        userId,
-        attributeId,
-        value,
-        version: 1
-      }
+      data: { userId, attributeId, value: value || '', version: 1 },
+      include: { attribute: true }
     });
     return res.json(created);
   } catch (error) {

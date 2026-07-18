@@ -165,3 +165,29 @@ exports.deletePosition = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.createComment = async (req, res) => {
+  const { id } = req.params; // Position ID
+  const { text } = req.body;
+  const userId = req.user.id;
+
+  if (!text || text.trim() === '') {
+    return res.status(400).json({ error: 'Comment text is required' });
+  }
+
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        positionId: id,
+        userId,
+        text
+      },
+      include: {
+        user: true
+      }
+    });
+    res.status(201).json(comment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

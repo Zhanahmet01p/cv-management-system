@@ -3,7 +3,10 @@ const { prisma, updateWithOptimisticLock } = require('../db');
 exports.getAllAttributes = async (req, res) => {
   try {
     const attributes = await prisma.attribute.findMany({
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { positions: true } }
+      }
     });
     res.json(attributes);
   } catch (error) {

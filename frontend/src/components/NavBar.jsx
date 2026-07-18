@@ -1,7 +1,16 @@
-import React from 'react';
+
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
+import {
+  LayoutDashboard,
+  Briefcase,
+  User,
+  ShieldCheck,
+  LogOut,
+  LogIn,
+  Library
+} from 'lucide-react';
 
 const NavBar = () => {
   const { user, logout } = useAuth();
@@ -13,53 +22,110 @@ const NavBar = () => {
     navigate('/login');
   };
 
-  return (
-    <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm">
-      <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <NavLink
-            to="/positions"
-            className={({ isActive }) =>
-              `text-sm font-medium ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`
-            }
-          >
-            {t('nav.positions')}
-          </NavLink>
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              `text-sm font-medium ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`
-            }
-          >
-            {t('nav.profile')}
-          </NavLink>
-          {user?.role === 'ADMIN' && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `text-sm font-medium ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`
-              }
-            >
-              {t('nav.admin')}
-            </NavLink>
-          )}
-        </div>
+  const linkClass = ({ isActive }) =>
+    `nav-link${isActive ? ' active' : ''}`;
 
-        <div className="flex items-center gap-3">
-          {user ? (
-            <button
-              onClick={handleLogout}
-              className="text-sm text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              {t('nav.logout')}
-            </button>
-          ) : (
-            <NavLink to="/login" className="text-sm text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400">
-              {t('nav.login')}
-            </NavLink>
-          )}
+  return (
+    <nav style={{
+      background: 'var(--color-surface)',
+      borderRight: '1px solid var(--color-border)',
+      padding: '1rem 0.75rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.25rem',
+      minHeight: 'calc(100vh - 60px)',
+      position: 'sticky',
+      top: '60px',
+      height: 'fit-content',
+    }}
+    className="nav-sidebar"
+    >
+      <NavLink to="/" end className={linkClass} id="nav-home">
+        <LayoutDashboard size={16} />
+        {t('nav.home')}
+      </NavLink>
+
+      <NavLink to="/positions" className={linkClass} id="nav-positions">
+        <Briefcase size={16} />
+        {t('nav.positions')}
+      </NavLink>
+
+      {user && (
+        <NavLink to="/profile" className={linkClass} id="nav-profile">
+          <User size={16} />
+          {t('nav.profile')}
+        </NavLink>
+      )}
+
+      {(user?.role === 'ADMIN' || user?.role === 'RECRUITER') && (
+        <NavLink to="/admin" className={linkClass} id="nav-admin">
+          <Library size={16} />
+          {t('nav.admin')}
+        </NavLink>
+      )}
+
+      {user?.role === 'ADMIN' && (
+        <NavLink to="/admin/users" className={linkClass} id="nav-users">
+          <ShieldCheck size={16} />
+          {t('nav.users')}
+        </NavLink>
+      )}
+
+      <div style={{ flex: 1 }} />
+      <hr className="divider" style={{ margin: '0.75rem 0' }} />
+
+      {user ? (
+        <div>
+          {/* User info */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.625rem',
+            padding: '0.5rem 0.875rem', marginBottom: '0.5rem'
+          }}>
+            {user.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt="avatar"
+                className="avatar"
+                style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}
+              />
+            ) : (
+              <div className="avatar" style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}>
+                {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                fontSize: '0.8rem', fontWeight: 600,
+                color: 'var(--color-text)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              }}>
+                {user.firstName || user.email.split('@')[0]}
+              </div>
+              <div>
+                <span className={`badge badge-${user.role === 'ADMIN' ? 'danger' : user.role === 'RECRUITER' ? 'accent' : 'primary'}`}
+                  style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+                  {user.role}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            id="btn-logout"
+            onClick={handleLogout}
+            className="nav-link"
+            style={{ width: '100%', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
+          >
+            <LogOut size={16} />
+            {t('nav.logout')}
+          </button>
         </div>
-      </div>
+      ) : (
+        <NavLink to="/login" className={linkClass} id="nav-login">
+          <LogIn size={16} />
+          {t('nav.login')}
+        </NavLink>
+      )}
     </nav>
   );
 };

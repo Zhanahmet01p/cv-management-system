@@ -1,137 +1,392 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { fetchCV, publishCV } from '../api.js';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { fetchCV, publishCV, toggleLike, createComment, saveAttributeValue } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTranslation } from 'react-i18next';
+import { Heart, MessageSquare, Printer, Send, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+
+const POLL_INTERVAL = 4000;
 
 const CVView = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const [cvData, setCvData] = useState(null);
+  const { t } = useTranslation();
+
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('cv');
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState('');
+  const pollRef = useRef(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetchCV(id);
-        setCvData(res.data);
-      } catch (err) {
-        setError('Unable to load CV.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [id]);
+  const isRecruiter = user?.role === 'RECRUITER' || user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN';
+  const isOwner = user?.id === data?.cv?.userId;
+  const canEdit = isOwner || isAdmin;
 
-  const handlePublish = async () => {
-    if (!cvData) return;
-    setSaving(true);
+
+  const load = async () => {
     try {
-      await publishCV(cvData.cv.id, { version: cvData.cv.version });
-      const refreshed = await fetchCV(id);
-      setCvData(refreshed.data);
-    } catch (err) {
-      setError('Could not publish CV.');
+      const res = await fetchCV(id);
+      setData(res.data);
+      setLikeCount(res.data.cv?.likes?.length ?? 0);
+      const myLike = res.data.cv?.likes?.some(l => l.userId === user?.id);
+      setLiked(!!myLike);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Could not load CV');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    let active = true;
+    const fetchAll = async () => {
+      try {
+        const res = await fetchCV(id);
+        if (active) {
+          setData(res.data);
+          setLikeCount(res.data.cv?.likes?.length ?? 0);
+          const myLike = res.data.cv?.likes?.some(l => l.userId === user?.id);
+          setLiked(!!myLike);
+        }
+      } catch (e) {
+        if (active) setError(e.response?.data?.error || 'Could not load CV');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    fetchAll();
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetchCV(id);
+        if (active) setData(res.data);
+      } catch {
+        // ignore errors on polling
+      }
+    }, POLL_INTERVAL);
+
+    return () => {
+      active = false;
+      clearInterval(pollRef.current);
+    };
+  }, [id, user?.id]);
+
+  const handleAttrEdit = async (attrId, value, version) => {
+    try {
+      await saveAttributeValue({ attributeId: attrId, value, version });
+      await load();
+    } catch (e) {
+      console.error('Attr save:', e);
+    }
+  };
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    setPublishMsg('');
+    try {
+      await publishCV(id, { version: data.cv.version });
+      await load();
+      setPublishMsg('CV published! Recruiters can now see it.');
+    } catch (e) {
+      if (e.response?.status === 409) {
+        setPublishMsg('Version conflict. Please reload.');
+      } else {
+        setPublishMsg(e.response?.data?.error || 'Publish failed.');
+      }
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!isRecruiter) return;
+    try {
+      const res = await toggleLike(id);
+      setLiked(res.data.liked);
+      setLikeCount(prev => res.data.liked ? prev + 1 : prev - 1);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSendComment = async () => {
+    if (!comment.trim()) return;
+    setSending(true);
+    try {
+      await createComment(data.cv.positionId, comment);
+      setComment('');
+      await load();
+    } catch (e) { console.error(e); }
+    finally { setSending(false); }
+  };
+
+  const handlePrint = () => window.print();
+
   if (loading) {
-    return <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">Loading CV...</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="skeleton" style={{ height: '3rem', borderRadius: 'var(--radius-xl)' }} />
+        ))}
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700 shadow-sm dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">{error}</div>;
+    return (
+      <div style={{ padding: '2rem' }}>
+        <div className="alert alert-danger">{error}</div>
+        <Link to="/profile" className="btn btn-outline" style={{ marginTop: '1rem' }}>
+          <ArrowLeft size={15} /> Back to Profile
+        </Link>
+      </div>
+    );
   }
 
-  if (!cvData) {
-    return null;
-  }
+  const { cv, assembledData } = data;
+  const allFilled = (assembledData?.attributes || []).every(av => av.value !== '' && av.value !== null && av.value !== undefined);
 
-  const { cv, assembledData } = cvData;
-  const requiredAttributes = assembledData.attributes || [];
-  const projectCount = assembledData.projects?.length || 0;
+  const position = cv?.position;
+  const comments = position?.comments || [];
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">CV: {cv.position.title}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Generated for position template with automatic profile values.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-800 dark:text-slate-200">{cv.status}</span>
-            {user?.id === cv.userId && cv.status === 'DRAFT' && (
-              <button
-                disabled={saving}
-                onClick={handlePublish}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {saving ? 'Publishing…' : 'Publish CV'}
-              </button>
-            )}
-          </div>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Back + Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <Link to="/profile" className="btn btn-ghost btn-sm">
+          <ArrowLeft size={15} /> {t('common.back')}
+        </Link>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
-            <div className="text-sm text-slate-500 dark:text-slate-400">Candidate</div>
-            <div className="mt-2 text-lg font-semibold">{assembledData.fullName}</div>
-            <div className="text-sm text-slate-500">{assembledData.location}</div>
-          </div>
-          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
-            <div className="text-sm text-slate-500 dark:text-slate-400">Projects Included</div>
-            <div className="mt-2 text-lg font-semibold">{projectCount}</div>
-          </div>
-        </div>
-      </section>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Like (Recruiters only) */}
+          {isRecruiter && (
+            <button
+              id="btn-like-cv"
+              className={`like-btn${liked ? ' liked' : ''}`}
+              onClick={handleLike}
+            >
+              <Heart size={15} fill={liked ? 'currentColor' : 'none'} />
+              {likeCount} {t('cv.likes')}
+            </button>
+          )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-4 text-xl font-semibold">Selected Attributes</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                <th className="px-4 py-3">Attribute</th>
-                <th className="px-4 py-3">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requiredAttributes.map((attr) => {
-                const value = attr.value || '—';
-                const missing = !attr.value || String(attr.value).trim() === '';
-                return (
-                  <tr key={attr.id} className={`border-t border-slate-200 dark:border-slate-800 ${missing ? 'bg-red-50 dark:bg-red-950/30' : ''}`}>
-                    <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">{attr.attribute.name}</td>
-                    <td className="px-4 py-4 text-slate-700 dark:text-slate-200">{missing ? <span className="text-red-600 dark:text-red-300">Missing value</span> : value}</td>
+          <button id="btn-print-cv" className="btn btn-outline btn-sm" onClick={handlePrint}>
+            <Printer size={15} /> {t('cv.printPdf')}
+          </button>
+
+          {/* Publish (Owner/Admin only, when draft) */}
+          {canEdit && cv.status === 'DRAFT' && (
+            <button
+              id="btn-publish-cv"
+              className="btn btn-success"
+              disabled={publishing || !allFilled}
+              onClick={handlePublish}
+              title={!allFilled ? t('cv.publishHint') : ''}
+            >
+              {publishing
+                ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                : <CheckCircle size={15} />}
+              {t('cv.publishBtn')}
+            </button>
+          )}
+
+          <span className={`badge ${cv.status === 'PUBLISHED' ? 'badge-success' : 'badge-warning'}`}>
+            {cv.status === 'PUBLISHED' ? t('cv.published') : t('cv.draft')}
+          </span>
+        </div>
+      </div>
+
+      {publishMsg && (
+        <div className={`alert ${publishMsg.includes('published') ? 'alert-success' : 'alert-danger'}`}>
+          {publishMsg}
+        </div>
+      )}
+
+      {!allFilled && canEdit && (
+        <div className="alert alert-warning">
+          {t('cv.publishHint')} Fill in all highlighted (red) fields.
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="tabs">
+        <button className={`tab${activeTab === 'cv' ? ' active' : ''}`}
+          onClick={() => setActiveTab('cv')}>
+          CV
+        </button>
+        <button className={`tab${activeTab === 'disc' ? ' active' : ''}`}
+          onClick={() => setActiveTab('disc')} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <MessageSquare size={14} /> {t('cv.discussions')}
+          {comments.length > 0 && <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>{comments.length}</span>}
+        </button>
+      </div>
+
+      {/* ── CV Tab ── */}
+      {activeTab === 'cv' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+          {/* Candidate header section */}
+          <div className="card" style={{ padding: '1.75rem' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {assembledData.photoUrl && (
+                <img src={assembledData.photoUrl} alt="Photo"
+                  className="avatar" style={{ width: '5rem', height: '5rem', fontSize: '1.5rem' }} />
+              )}
+              <div style={{ flex: 1 }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
+                  {assembledData.fullName}
+                </h1>
+                {assembledData.location && (
+                  <div style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                    📍 {assembledData.location}
+                  </div>
+                )}
+                <div style={{ marginTop: '0.75rem' }}>
+                  <span className="badge badge-primary">{position?.title}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Attributes */}
+          {(assembledData.attributes || []).length > 0 && (
+            <div className="card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.25rem 0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                <h2 className="section-title">Skills & Attributes</h2>
+              </div>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Attribute</th>
+                    <th>Category</th>
+                    <th>Value</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </thead>
+                <tbody>
+                  {assembledData.attributes.map((av, i) => {
+                    const isEmpty = !av.value || av.value === '';
+                    return (
+                      <tr key={av.id || i}>
+                        <td className="cell-primary">{av.attribute?.name}</td>
+                        <td><span className="badge badge-neutral">{av.attribute?.category}</span></td>
+                        <td>
+                          {canEdit ? (
+                            <input
+                              className={`input${isEmpty ? ' attr-empty' : ''}`}
+                              style={{ padding: '0.3rem 0.625rem', fontSize: '0.85rem' }}
+                              placeholder={isEmpty ? `⚠ ${t('cv.emptyAttr')}` : ''}
+                              defaultValue={typeof av.value === 'object' ? JSON.stringify(av.value) : (av.value || '')}
+                              onBlur={e => handleAttrEdit(av.attributeId || av.attribute?.id, e.target.value, av.version)}
+                            />
+                          ) : (
+                            <span className={isEmpty ? 'badge badge-danger' : ''} style={{ fontSize: '0.875rem' }}>
+                              {isEmpty ? `⚠ ${t('cv.emptyAttr')}` : (typeof av.value === 'object' ? JSON.stringify(av.value) : av.value)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-4 text-xl font-semibold">Relevant Projects</h2>
-        {assembledData.projects.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">No matching projects are available.</div>
-        ) : (
-          <div className="space-y-4">
-            {assembledData.projects.map((project) => (
-              <div key={project.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                <div className="text-lg font-semibold text-slate-900 dark:text-white">{project.name}</div>
-                <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{new Date(project.startDate).toLocaleDateString()} — {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Present'}</div>
-                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{project.description}</p>
+          {/* Projects */}
+          {(assembledData.projects || []).length > 0 && (
+            <div className="card" style={{ padding: '1.25rem' }}>
+              <h2 className="section-title" style={{ marginBottom: '1rem' }}>Projects</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {assembledData.projects.map(proj => (
+                  <div key={proj.id} style={{
+                    padding: '1rem', background: 'var(--color-surface-2)',
+                    borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text)' }}>{proj.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-3)', marginTop: '0.2rem' }}>
+                          {new Date(proj.startDate).toLocaleDateString()} – {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : 'Present'}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                        {(proj.tags || []).map(tag => <span key={tag} className="tag">{tag}</span>)}
+                      </div>
+                    </div>
+                    {proj.description && (
+                      <div style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-2)', lineHeight: 1.7 }}>
+                        {proj.description}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Discussion Tab ── */}
+      {activeTab === 'disc' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Comments list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {comments.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon"><MessageSquare size={20} /></div>
+                <div>No comments yet. Be the first!</div>
+              </div>
+            ) : comments.map(c => (
+              <div key={c.id} className="comment-card">
+                <div className="comment-meta">
+                  <span className="comment-author">
+                    {isRecruiter
+                      ? <Link to="#" style={{ color: 'var(--color-primary)' }}>
+                          {c.user?.firstName || c.user?.email?.split('@')[0] || 'User'}
+                        </Link>
+                      : (c.user?.firstName || 'User')}
+                  </span>
+                  <span>•</span>
+                  <span>{new Date(c.createdAt).toLocaleString()}</span>
+                </div>
+                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-2)', lineHeight: 1.7 }}>
+                  {c.text}
+                </div>
               </div>
             ))}
           </div>
-        )}
-      </section>
+
+          {/* New comment */}
+          {user && (
+            <div className="card" style={{ padding: '1rem' }}>
+              <textarea
+                id="input-comment"
+                className="textarea"
+                rows={3}
+                placeholder={t('cv.writeComment')}
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
+                <button
+                  id="btn-send-comment"
+                  className="btn btn-primary"
+                  disabled={sending || !comment.trim()}
+                  onClick={handleSendComment}
+                >
+                  {sending ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} />}
+                  {t('cv.sendComment')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

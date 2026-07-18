@@ -1,48 +1,359 @@
-import React, { useEffect, useState } from 'react';
-import { fetchPositions } from '../api.js';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  fetchAttributes, createAttribute, updateAttribute, deleteAttribute,
+  fetchUsers, updateUserRole, toggleBlockUser, deleteUser
+} from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useTranslation } from 'react-i18next';
+import { Plus, Edit3, Trash2, ShieldOff, X, Check, Loader2 } from 'lucide-react';
 
-const AdminDashboard = () => {
-  const [positions, setPositions] = useState([]);
-  const [loading, setLoading] = useState(true);
+const ATTR_TYPES = ['STRING', 'TEXT', 'IMAGE', 'NUMERIC', 'DATE', 'PERIOD', 'BOOLEAN', 'SELECT'];
+const ATTR_CATEGORIES = ['Certification', 'Domain Knowledge', 'Personal Information', 'Soft Skills', 'Technical Skills', 'Language', 'Other'];
+const ROLES = ['CANDIDATE', 'RECRUITER', 'ADMIN'];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetchPositions();
-        setPositions(res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+/* ─────────── Attribute Modal ─────────── */
+const AttrModal = ({ attr, onClose, onSaved }) => {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({ category: attr?.category || '', name: attr?.name || '', type: attr?.type || 'STRING', version: attr?.version ?? 1 });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      if (attr?.id) {
+        await updateAttribute(attr.id, form);
+      } else {
+        await createAttribute(form);
       }
-    };
-    load();
-  }, []);
+      onSaved();
+    } catch (err) {
+      if (err.response?.status === 409) setError('Version conflict');
+      else setError(err.response?.data?.error || 'Failed');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">This section helps administrators inspect the shared position library and system state.</p>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-xl font-semibold">Positions overview</h2>
-        {loading ? (
-          <div className="mt-4 text-slate-600 dark:text-slate-300">Loading positions…</div>
-        ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl bg-slate-50 p-5 dark:bg-slate-950">
-              <div className="text-sm uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Total positions</div>
-              <div className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{positions.length}</div>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h2 className="section-title">{attr?.id ? t('admin.editAttribute') : t('admin.createAttribute')}</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {error && <div className="alert alert-danger">{error}</div>}
+            <div>
+              <label className="label">{t('admin.attrName')}</label>
+              <input className="input" required value={form.name}
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
             </div>
-            <div className="rounded-2xl bg-slate-50 p-5 dark:bg-slate-950">
-              <div className="text-sm uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Most recent</div>
-              <div className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{positions[0]?.title ?? 'N/A'}</div>
+            <div>
+              <label className="label">{t('admin.attrCategory')}</label>
+              <select className="select" value={form.category}
+                onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+                <option value="">Select category…</option>
+                {ATTR_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">{t('admin.attrType')}</label>
+              <select className="select" value={form.type}
+                onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                {ATTR_TYPES.map(tp => <option key={tp} value={tp}>{tp}</option>)}
+              </select>
             </div>
           </div>
-        )}
-      </section>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>{t('common.cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+              {saving ? t('common.loading') : t('common.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────── Admin Dashboard ─────────── */
+const AdminDashboard = ({ tab: initialTab }) => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+
+  const [activeTab, setActiveTab] = useState(initialTab === 'users' ? 'users' : 'attrs');
+  const [attributes, setAttributes] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null);
+    const [actionMsg, setActionMsg] = useState('');
+
+  const isAdmin = user?.role === 'ADMIN';
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const aRes = await fetchAttributes();
+      setAttributes(aRes.data);
+      if (isAdmin) {
+        const uRes = await fetchUsers();
+        setUsers(uRes.data);
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [isAdmin]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, [load]);
+
+  const showMsg = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), 4000); };
+
+  const handleDeleteAttr = async (attr) => {
+    if (!window.confirm(`Delete attribute "${attr.name}"?`)) return;
+    try {
+      await deleteAttribute(attr.id);
+      await load();
+      showMsg('Attribute deleted');
+    } catch { showMsg('Delete failed'); }
+  };
+
+  const handleToggleBlock = async (u) => {
+    try {
+      await toggleBlockUser(u.id, u.version);
+      await load();
+      showMsg(`User ${u.blocked ? 'unblocked' : 'blocked'}`);
+    } catch { showMsg('Action failed'); }
+  };
+
+  const handleRoleChange = async (u, newRole) => {
+    try {
+      await updateUserRole(u.id, newRole, u.version);
+      await load();
+      showMsg('Role updated');
+    } catch { showMsg('Role change failed'); }
+  };
+
+  const handleDeleteUser = async (u) => {
+    if (u.id === user?.id) { showMsg("You can't delete yourself"); return; }
+    if (!window.confirm(`Delete user ${u.email}?`)) return;
+    try {
+      await deleteUser(u.id);
+      await load();
+      showMsg('User deleted');
+    } catch { showMsg('Delete failed'); }
+  };
+
+  const TABS = [
+    { id: 'attrs', label: t('admin.attributes') },
+    ...(isAdmin ? [{ id: 'users', label: t('admin.users') }] : []),
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Toast */}
+      {actionMsg && (
+        <div className="alert alert-info" style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 200, maxWidth: '360px' }}>
+          {actionMsg}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 className="page-title">{t('admin.title')}</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            id={`admin-tab-${tab.id}`}
+            className={`tab${activeTab === tab.id ? ' active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Attribute Library Tab ── */}
+      {activeTab === 'attrs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button id="btn-create-attribute" className="btn btn-primary" onClick={() => setModal({})}>
+              <Plus size={16} /> {t('admin.createAttribute')}
+            </button>
+          </div>
+
+          <div className="card" style={{ overflow: 'hidden' }}>
+            {loading ? (
+              <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: '2.25rem', borderRadius: 'var(--radius)' }} />)}
+              </div>
+            ) : attributes.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📚</div>
+                <div>{t('admin.noAttributes')}</div>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('admin.attrName')}</th>
+                    <th>{t('admin.attrCategory')}</th>
+                    <th>{t('admin.attrType')}</th>
+                    <th>Used In</th>
+                    <th style={{ width: '6rem' }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {attributes.map(a => (
+                    <tr key={a.id}>
+                      <td className="cell-primary">{a.name}</td>
+                      <td><span className="badge badge-neutral">{a.category}</span></td>
+                      <td>
+                        <span className="badge badge-accent" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{a.type}</span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--color-text-3)' }}>
+                        {a._count?.positions ?? 0} positions
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn-ghost btn-icon btn-sm"
+                            id={`btn-edit-attr-${a.id}`}
+                            onClick={() => setModal(a)}
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            className="btn btn-danger btn-icon btn-sm"
+                            id={`btn-delete-attr-${a.id}`}
+                            onClick={() => handleDeleteAttr(a)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── User Management Tab ── */}
+      {activeTab === 'users' && isAdmin && (
+        <div className="card" style={{ overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: '2.5rem', borderRadius: 'var(--radius)' }} />)}
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} style={u.blocked ? { opacity: 0.55 } : {}}>
+                    <td className="cell-primary">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {u.photoUrl ? (
+                          <img src={u.photoUrl} alt="" className="avatar" style={{ width: '1.75rem', height: '1.75rem', fontSize: '0.7rem' }} />
+                        ) : (
+                          <div className="avatar" style={{ width: '1.75rem', height: '1.75rem', fontSize: '0.7rem' }}>
+                            {(u.firstName?.[0] || u.email[0]).toUpperCase()}
+                          </div>
+                        )}
+                        {u.firstName ? `${u.firstName} ${u.lastName || ''}` : u.email.split('@')[0]}
+                        {u.id === user?.id && <span className="badge badge-primary" style={{ fontSize: '0.62rem' }}>You</span>}
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '0.82rem', color: 'var(--color-text-3)' }}>{u.email}</td>
+                    <td>
+                      {u.id === user?.id ? (
+                        // Self: can demote but see warning
+                        <select
+                          className="select"
+                          style={{ width: '120px', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                          value={u.role}
+                          onChange={e => {
+                            if (e.target.value !== u.role) {
+                              if (window.confirm(`Change YOUR role to ${e.target.value}? You may lose admin access.`)) {
+                                handleRoleChange(u, e.target.value);
+                              }
+                            }
+                          }}
+                        >
+                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      ) : (
+                        <select
+                          className="select"
+                          style={{ width: '120px', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                          value={u.role}
+                          onChange={e => handleRoleChange(u, e.target.value)}
+                        >
+                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${u.blocked ? 'badge-danger' : 'badge-success'}`}>
+                        {u.blocked ? 'Blocked' : 'Active'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
+                        {u.id !== user?.id && (
+                          <>
+                            <button
+                              className={`btn btn-sm ${u.blocked ? 'btn-success' : 'btn-outline'}`}
+                              onClick={() => handleToggleBlock(u)}
+                              title={u.blocked ? t('admin.unblockUser') : t('admin.blockUser')}
+                            >
+                              {u.blocked ? <Check size={14} /> : <ShieldOff size={14} />}
+                              {u.blocked ? 'Unblock' : 'Block'}
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDeleteUser(u)}
+                            >
+                              <Trash2 size={14} /> {t('admin.deleteUser')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Attribute Modal */}
+      {modal !== null && (
+        <AttrModal
+          attr={modal?.id ? modal : null}
+          onClose={() => setModal(null)}
+          onSaved={async () => { setModal(null); await load(); showMsg('Saved!'); }}
+        />
+      )}
     </div>
   );
 };
