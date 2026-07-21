@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   fetchPositions, createCV, createPosition, updatePosition,
   deletePosition, duplicatePosition, fetchAttributes
@@ -9,6 +10,9 @@ import { useTranslation } from 'react-i18next';
 import {
   Plus, Copy, Trash2, Edit3, FileText, Check, X, ChevronDown, ChevronUp, Loader2, Briefcase
 } from 'lucide-react';
+
+/* ─────────── Helper to Safely Get Tag Name ─────────── */
+const getTagName = (tag) => (typeof tag === 'string' ? tag : tag?.name || '');
 
 /* ─────────── Position Modal ─────────── */
 const PositionModal = ({ position, attributes, onClose, onSaved }) => {
@@ -21,7 +25,7 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
     maxProjects: position?.maxProjects ?? 3,
     accessRules: position?.accessRules || [],
     selectedAttrs: (position?.attributes || []).map(a => a.attributeId || a.attribute?.id),
-    tags: (position?.tags || []).map(t => t.name).join(', '),
+    tags: (position?.tags || []).map(getTagName).join(', '),
     version: position?.version ?? 1,
   });
 
@@ -32,7 +36,7 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
   const visibleAttrs = useMemo(() =>
     attributes.filter(a =>
       a.name.toLowerCase().includes(attrSearch.toLowerCase()) ||
-      a.category.toLowerCase().includes(attrSearch.toLowerCase())
+      (a.category && a.category.toLowerCase().includes(attrSearch.toLowerCase()))
     ),
     [attributes, attrSearch]
   );
@@ -50,14 +54,16 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
     e.preventDefault();
     setError('');
     setSaving(true);
+
     const payload = {
-      title: form.title,
-      description: form.description,
-      maxProjects: Number(form.maxProjects),
+      title: form.title.trim(),
+      description: form.description.trim(),
+      maxProjects: Number(form.maxProjects) || 3,
       attributeIds: form.selectedAttrs,
       tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
       version: form.version,
     };
+
     try {
       if (isEdit) {
         await updatePosition(position.id, payload);
@@ -67,9 +73,9 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
       onSaved();
     } catch (err) {
       if (err.response?.status === 409) {
-        setError('Version conflict – someone else edited this. Please reload.');
+        setError('Конфликт версий — вакансия была изменена другим пользователем.');
       } else {
-        setError(err.response?.data?.error || 'Save failed');
+        setError(err.response?.data?.error || err.response?.data?.message || 'Ошибка сохранения');
       }
     } finally {
       setSaving(false);
@@ -81,9 +87,9 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
       <div className="modal modal-lg">
         <div className="modal-header">
           <h2 className="section-title">
-            {isEdit ? t('positions.editPosition') : t('positions.createPosition')}
+            {isEdit ? t('positions.editPosition', 'Редактировать вакансию') : t('positions.createPosition', 'Создать вакансию')}
           </h2>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
+          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -92,25 +98,25 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label className="label">{t('common.create') === 'Create' ? 'Title' : 'Название'}</label>
+                <label className="label">Название вакансии *</label>
                 <input className="input" required value={form.title}
                   onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
               </div>
               <div>
-                <label className="label">{t('positions.maxProjects')}</label>
-                <input className="input" type="number" min={0} max={20} value={form.maxProjects}
+                <label className="label">{t('positions.maxProjects', 'Макс. проектов в CV')}</label>
+                <input className="input" type="number" min={1} max={20} value={form.maxProjects}
                   onChange={e => setForm(p => ({ ...p, maxProjects: e.target.value }))} />
               </div>
             </div>
 
             <div>
-              <label className="label">Description</label>
+              <label className="label">Описание и требования</label>
               <textarea className="textarea" required rows={3} value={form.description}
                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
             </div>
 
             <div>
-              <label className="label">Technology Tags (comma-separated)</label>
+              <label className="label">Теги (через запятую)</label>
               <input className="input" placeholder="React, Node.js, PostgreSQL"
                 value={form.tags}
                 onChange={e => setForm(p => ({ ...p, tags: e.target.value }))} />
@@ -118,8 +124,8 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
 
             {/* Attributes from library */}
             <div>
-              <label className="label">{t('positions.attributes')}</label>
-              <input className="input" placeholder="Search attributes by name or category…"
+              <label className="label">{t('positions.attributes', 'Требуемые атрибуты из библиотеки')}</label>
+              <input className="input" placeholder="Поиск атрибутов по названию или категории..."
                 value={attrSearch}
                 onChange={e => setAttrSearch(e.target.value)}
                 style={{ marginBottom: '0.5rem' }} />
@@ -130,7 +136,7 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
               }}>
                 {visibleAttrs.length === 0 ? (
                   <span style={{ color: 'var(--color-text-3)', fontSize: '0.85rem' }}>
-                    No attributes found
+                    Атрибуты не найдены
                   </span>
                 ) : visibleAttrs.map(a => {
                   const selected = form.selectedAttrs.includes(a.id);
@@ -143,14 +149,14 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
                     >
                       {selected && <Check size={11} />}
                       {a.name}
-                      <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({a.type})</span>
+                      <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({a.type || a.category})</span>
                     </button>
                   );
                 })}
               </div>
               {form.selectedAttrs.length > 0 && (
                 <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--color-primary)' }}>
-                  {form.selectedAttrs.length} attribute(s) selected
+                  Выбрано атрибутов: {form.selectedAttrs.length}
                 </div>
               )}
             </div>
@@ -158,11 +164,11 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
-              {t('common.cancel')}
+              {t('common.cancel', 'Отмена')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-              {saving ? t('common.loading') : (isEdit ? t('common.update') : t('common.create'))}
+              {saving ? t('common.loading', 'Сохранение...') : (isEdit ? t('common.update', 'Обновить') : t('common.create', 'Создать'))}
             </button>
           </div>
         </form>
@@ -175,6 +181,7 @@ const PositionModal = ({ position, attributes, onClose, onSaved }) => {
 const Positions = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { searchQuery } = useSearch();
 
   const [positions, setPositions]     = useState([]);
@@ -190,37 +197,21 @@ const Positions = () => {
   const isCandidate = user?.role === 'CANDIDATE';
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [pRes, aRes] = await Promise.all([fetchPositions(), fetchAttributes()]);
-      setPositions(pRes.data);
-      setAttributes(aRes.data);
+      setPositions(pRes.data || []);
+      setAttributes(aRes.data || []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load positions data:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    let active = true;
-    const fetchAll = async () => {
-      try {
-        const [pRes, aRes] = await Promise.all([fetchPositions(), fetchAttributes()]);
-        if (active) {
-          setPositions(pRes.data);
-          setAttributes(aRes.data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchAll();
-    return () => { active = false; };
-  }, []);
+    load();
+  }, [load]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -228,12 +219,12 @@ const Positions = () => {
   };
 
   const visible = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = (searchQuery || '').trim().toLowerCase();
     if (!q) return positions;
     return positions.filter(p =>
-      p.title.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q) ||
-      (p.tags || []).some(t => t.name.toLowerCase().includes(q))
+      p.title?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      (p.tags || []).some(t => getTagName(t).toLowerCase().includes(q))
     );
   }, [positions, searchQuery]);
 
@@ -256,19 +247,23 @@ const Positions = () => {
     }
   };
 
-  // Generate CV (single position)
+  // Generate CV (single position) with direct redirect
   const handleGenerateCV = async (positionId) => {
-    if (!user) { showToast(t('positions.signInRequired')); return; }
-    if (!isCandidate) { showToast(t('positions.candidatesOnly')); return; }
+    if (!user) { showToast(t('positions.signInRequired', 'Требуется авторизация')); return; }
+    if (!isCandidate) { showToast(t('positions.candidatesOnly', 'Только для кандидатов')); return; }
+
     setActionLoading(positionId);
     try {
-      await createCV(positionId);
-      showToast(t('positions.cvCreated'));
+      const res = await createCV(positionId);
+      showToast(t('positions.cvCreated', 'CV создано! Переходим...'));
+      if (res?.data?.id) {
+        navigate(`/cvs/${res.data.id}`);
+      }
     } catch (err) {
       if (err.response?.data?.error === 'CV already exists for this position') {
-        showToast(t('positions.cvExists'));
+        showToast(t('positions.cvExists', 'У вас уже есть CV по этой вакансии'));
       } else {
-        showToast(err.response?.data?.error || 'Error');
+        showToast(err.response?.data?.error || err.response?.data?.message || 'Ошибка при создании CV');
       }
     } finally {
       setActionLoading('');
@@ -276,15 +271,15 @@ const Positions = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ${selected.size} position(s)?`)) return;
+    if (!window.confirm(`Удалить выбранные вакансии (${selected.size} шт.)?`)) return;
     setActionLoading('delete');
     try {
       await Promise.all([...selected].map(id => deletePosition(id)));
-      showToast(`Deleted ${selected.size} position(s)`);
+      showToast(`Удалено вакансий: ${selected.size}`);
       setSelected(new Set());
       await load();
     } catch {
-      showToast('Delete failed');
+      showToast('Ошибка при удалении');
     } finally {
       setActionLoading('');
     }
@@ -296,11 +291,11 @@ const Positions = () => {
     setActionLoading('dup');
     try {
       await duplicatePosition(id);
-      showToast('Position duplicated');
+      showToast('Вакансия задублирована');
       setSelected(new Set());
       await load();
     } catch {
-      showToast('Duplicate failed');
+      showToast('Ошибка при дублировании');
     } finally {
       setActionLoading('');
     }
@@ -315,25 +310,25 @@ const Positions = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* Toast */}
+      {/* Toast Notification */}
       {toast && (
         <div className="alert alert-info" style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 200, maxWidth: '360px', animation: 'toolbar-in 0.2s ease' }}>
           {toast}
         </div>
       )}
 
-      {/* Page header */}
+      {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
         <div>
-          <h1 className="page-title">{t('positions.title')}</h1>
+          <h1 className="page-title">{t('positions.title', 'Вакансии')}</h1>
           <p style={{ color: 'var(--color-text-3)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-            {t('positions.subtitle')}
+            {t('positions.subtitle', 'Всего найдено:')} {visible.length}
           </p>
         </div>
         {isRecruiter && (
           <button id="btn-create-position" className="btn btn-primary" onClick={() => setModal('create')}>
             <Plus size={16} />
-            {t('positions.createPosition')}
+            {t('positions.createPosition', 'Создать вакансию')}
           </button>
         )}
       </div>
@@ -341,7 +336,7 @@ const Positions = () => {
       {/* Contextual Toolbar (appears on selection) */}
       {someSelected && (
         <div className="toolbar">
-          <span className="toolbar-selection">{selected.size} selected</span>
+          <span className="toolbar-selection">Выбрано: {selected.size}</span>
 
           {isCandidate && selected.size === 1 && (
             <button
@@ -350,7 +345,7 @@ const Positions = () => {
               onClick={() => handleGenerateCV([...selected][0])}
             >
               <FileText size={14} />
-              {t('positions.generateCV')}
+              {t('positions.generateCV', 'Создать CV')}
             </button>
           )}
 
@@ -360,17 +355,17 @@ const Positions = () => {
                 <>
                   <button className="btn btn-outline btn-sm" onClick={handleEdit}>
                     <Edit3 size={14} />
-                    {t('common.edit')}
+                    {t('common.edit', 'Редактировать')}
                   </button>
                   <button className="btn btn-outline btn-sm" disabled={!!actionLoading} onClick={handleDuplicate}>
                     <Copy size={14} />
-                    {t('common.duplicate')}
+                    {t('common.duplicate', 'Дублировать')}
                   </button>
                 </>
               )}
               <button className="btn btn-danger btn-sm" disabled={!!actionLoading} onClick={handleDelete}>
                 <Trash2 size={14} />
-                {t('common.delete')} ({selected.size})
+                {t('common.delete', 'Удалить')} ({selected.size})
               </button>
             </>
           )}
@@ -403,11 +398,11 @@ const Positions = () => {
                       onChange={toggleAll}
                     />
                   </th>
-                  <th>Title</th>
-                  <th>Description</th>
-                  <th>{t('positions.attributes')}</th>
-                  <th>Tags</th>
-                  <th style={{ textAlign: 'right' }}>{t('positions.cvCount')}</th>
+                  <th>Вакансия</th>
+                  <th>Описание</th>
+                  <th>Атрибуты</th>
+                  <th>Теги</th>
+                  <th style={{ textAlign: 'right' }}>CV</th>
                   <th style={{ width: '3rem' }} />
                 </tr>
               </thead>
@@ -417,7 +412,7 @@ const Positions = () => {
                     <td colSpan={7}>
                       <div className="empty-state">
                         <div className="empty-icon"><Briefcase size={22} /></div>
-                        <div style={{ fontWeight: 600 }}>{t('positions.noPositions')}</div>
+                        <div style={{ fontWeight: 600 }}>Вакансии не найдены</div>
                       </div>
                     </td>
                   </tr>
@@ -451,8 +446,10 @@ const Positions = () => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                          {(p.tags || []).slice(0, 3).map(tag => (
-                            <span key={tag.id} className="tag">{tag.name}</span>
+                          {(p.tags || []).slice(0, 3).map((tag, idx) => (
+                            <span key={tag.id || idx} className="tag">
+                              #{getTagName(tag)}
+                            </span>
                           ))}
                           {(p.tags || []).length > 3 && (
                             <span className="tag">+{p.tags.length - 3}</span>
@@ -471,23 +468,24 @@ const Positions = () => {
                         </button>
                       </td>
                     </tr>
+
                     {/* Expanded row with details */}
                     {expandedId === p.id && (
                       <tr style={{ background: 'var(--color-surface-2)' }}>
                         <td colSpan={7} style={{ padding: '1rem 1rem 1rem 3rem' }}>
                           <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
                             <div>
-                              <div className="label">Full Description</div>
-                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)', maxWidth: '400px' }}>
+                              <div className="label">Полное описание</div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)', maxWidth: '400px', whiteSpace: 'pre-line' }}>
                                 {p.description}
                               </div>
                             </div>
                             {p.attributes?.length > 0 && (
                               <div>
-                                <div className="label">Required Attributes</div>
+                                <div className="label">Требуемые атрибуты</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.3rem' }}>
                                   {p.attributes.map(a => (
-                                    <span key={a.attributeId} className="badge badge-accent">
+                                    <span key={a.attributeId || a.id} className="badge badge-accent">
                                       {a.attribute?.name || a.attributeId}
                                     </span>
                                   ))}
@@ -495,10 +493,11 @@ const Positions = () => {
                               </div>
                             )}
                             <div>
-                              <div className="label">Max Projects in CV</div>
-                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)' }}>{p.maxProjects}</div>
+                              <div className="label">Макс. проектов в CV</div>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-2)' }}>{p.maxProjects ?? 3}</div>
                             </div>
                           </div>
+
                           <div style={{ marginTop: '0.875rem', display: 'flex', gap: '0.5rem' }}>
                             {isCandidate && (
                               <button
@@ -509,30 +508,30 @@ const Positions = () => {
                                 {actionLoading === p.id
                                   ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                                   : <FileText size={14} />}
-                                {t('positions.generateCV')}
+                                {t('positions.generateCV', 'Создать CV')}
                               </button>
                             )}
                             {isRecruiter && (
                               <>
                                 <button className="btn btn-outline btn-sm" onClick={() => { setSelected(new Set([p.id])); setModal(p); }}>
-                                  <Edit3 size={14} /> {t('common.edit')}
+                                  <Edit3 size={14} /> {t('common.edit', 'Редактировать')}
                                 </button>
                                 <button className="btn btn-outline btn-sm" onClick={async () => {
                                   setActionLoading('dup');
                                   await duplicatePosition(p.id);
                                   await load();
                                   setActionLoading('');
-                                  showToast('Duplicated!');
+                                  showToast('Задублировано!');
                                 }}>
-                                  <Copy size={14} /> {t('common.duplicate')}
+                                  <Copy size={14} /> {t('common.duplicate', 'Дублировать')}
                                 </button>
                                 <button className="btn btn-danger btn-sm" onClick={async () => {
-                                  if (!window.confirm('Delete this position?')) return;
+                                  if (!window.confirm('Удалить эту вакансию?')) return;
                                   await deletePosition(p.id);
                                   await load();
-                                  showToast('Deleted');
+                                  showToast('Удалено');
                                 }}>
-                                  <Trash2 size={14} /> {t('common.delete')}
+                                  <Trash2 size={14} /> {t('common.delete', 'Удалить')}
                                 </button>
                               </>
                             )}
@@ -558,7 +557,7 @@ const Positions = () => {
             setModal(null);
             setSelected(new Set());
             await load();
-            showToast('Position saved!');
+            showToast('Вакансия успешно сохранена!');
           }}
         />
       )}

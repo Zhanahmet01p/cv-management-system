@@ -30,9 +30,9 @@ const Home = () => {
       try {
         const [sRes, pRes] = await Promise.all([fetchStats(), fetchPositions()]);
         setStats(sRes.data);
-        setPositions(pRes.data);
+        setPositions(pRes.data || []);
       } catch (e) {
-        console.error(e);
+        console.error('Error fetching home stats:', e);
       } finally {
         setLoading(false);
       }
@@ -40,11 +40,15 @@ const Home = () => {
     load();
   }, []);
 
-  // Collect all tech tags
-  const allTags = [...new Set(positions.flatMap(p => (p.tags || []).map(t => t.name)))];
-  // Popular = top 5 by cv count
+  // Извлечение всех тегов (с защитой от строк/объектов)
+  const allTags = [...new Set(
+    positions.flatMap(p => (p.tags || []).map(tag => typeof tag === 'string' ? tag : tag.name)).filter(Boolean)
+  )];
+
+  // Популярные вакансии (топ-5 по количеству CV)
   const popular = [...positions].sort((a, b) => (b._count?.cvs ?? 0) - (a._count?.cvs ?? 0)).slice(0, 5);
-  // Latest = first 8
+  
+  // Последние вакансии (первые 8)
   const latest = positions.slice(0, 8);
 
   const statItems = stats ? [
@@ -58,7 +62,7 @@ const Home = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Stats */}
+      {/* Метрики системы */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <BarChart2 size={18} style={{ color: 'var(--color-primary)' }} />
@@ -81,8 +85,10 @@ const Home = () => {
         )}
       </section>
 
+      {/* Основной контент */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '1.25rem', alignItems: 'start' }}>
-        {/* Latest Positions */}
+        
+        {/* Свежие вакансии */}
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -111,9 +117,11 @@ const Home = () => {
                 </thead>
                 <tbody>
                   {latest.length === 0 ? (
-                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-3)' }}>
-                      {t('common.noData')}
-                    </td></tr>
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-3)' }}>
+                        {t('common.noData')}
+                      </td>
+                    </tr>
                   ) : latest.map(p => (
                     <tr key={p.id}>
                       <td className="cell-primary">
@@ -123,9 +131,10 @@ const Home = () => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                          {(p.tags || []).slice(0, 3).map(tag => (
-                            <span key={tag.id} className="tag">{tag.name}</span>
-                          ))}
+                          {(p.tags || []).slice(0, 3).map((tag, idx) => {
+                            const tagName = typeof tag === 'string' ? tag : tag.name;
+                            return <span key={tag.id || idx} className="tag">{tagName}</span>;
+                          })}
                           {(p.tags || []).length > 3 && (
                             <span className="tag">+{p.tags.length - 3}</span>
                           )}
@@ -142,9 +151,10 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Right column */}
+        {/* Правая колонка */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Popular Positions */}
+          
+          {/* Популярные позиции */}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
               <TrendingUp size={16} style={{ color: 'var(--color-accent)' }} />
@@ -184,7 +194,7 @@ const Home = () => {
             </div>
           </section>
 
-          {/* Tag Cloud */}
+          {/* Облако тегов */}
           {allTags.length > 0 && (
             <section>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
@@ -193,19 +203,20 @@ const Home = () => {
               </div>
               <div className="card" style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {allTags.slice(0, 30).map(tag => (
+                  {allTags.slice(0, 30).map(tagName => (
                     <Link
-                      key={tag}
-                      to={user?.role === 'CANDIDATE' ? '/positions' : '/positions'}
+                      key={tagName}
+                      to="/positions"
                       className="tag"
                     >
-                      {tag}
+                      {tagName}
                     </Link>
                   ))}
                 </div>
               </div>
             </section>
           )}
+
         </div>
       </div>
     </div>

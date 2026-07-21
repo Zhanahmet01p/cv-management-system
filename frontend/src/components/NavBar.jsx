@@ -1,4 +1,3 @@
-
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
@@ -26,48 +25,49 @@ const NavBar = () => {
     `nav-link${isActive ? ' active' : ''}`;
 
   return (
-    <nav style={{
-      background: 'var(--color-surface)',
-      borderRight: '1px solid var(--color-border)',
-      padding: '1rem 0.75rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.25rem',
-      minHeight: 'calc(100vh - 60px)',
-      position: 'sticky',
-      top: '60px',
-      height: 'fit-content',
-    }}
-    className="nav-sidebar"
+    <nav 
+      style={{
+        background: 'var(--color-surface)',
+        borderRight: '1px solid var(--color-border)',
+        padding: '1rem 0.75rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.25rem',
+        minHeight: 'calc(100vh - 60px)',
+        position: 'sticky',
+        top: '60px',
+        height: 'fit-content',
+      }}
+      className="nav-sidebar"
     >
       <NavLink to="/" end className={linkClass} id="nav-home">
         <LayoutDashboard size={16} />
-        {t('nav.home')}
+        {t('nav.home') || 'Dashboard'}
       </NavLink>
 
       <NavLink to="/positions" className={linkClass} id="nav-positions">
         <Briefcase size={16} />
-        {t('nav.positions')}
+        {t('nav.positions') || 'Positions'}
       </NavLink>
 
       {user && (
         <NavLink to="/profile" className={linkClass} id="nav-profile">
           <User size={16} />
-          {t('nav.profile')}
+          {t('nav.profile') || 'Profile'}
         </NavLink>
       )}
 
       {(user?.role === 'ADMIN' || user?.role === 'RECRUITER') && (
-        <NavLink to="/admin" className={linkClass} id="nav-admin">
+        <NavLink to="/admin" end className={linkClass} id="nav-admin">
           <Library size={16} />
-          {t('nav.admin')}
+          {t('nav.admin') || 'Attributes'}
         </NavLink>
       )}
 
       {user?.role === 'ADMIN' && (
         <NavLink to="/admin/users" className={linkClass} id="nav-users">
           <ShieldCheck size={16} />
-          {t('nav.users')}
+          {t('nav.users') || 'Users'}
         </NavLink>
       )}
 
@@ -76,7 +76,7 @@ const NavBar = () => {
 
       {user ? (
         <div>
-          {/* User info */}
+          {/* Информация о пользователе */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.625rem',
             padding: '0.5rem 0.875rem', marginBottom: '0.5rem'
@@ -90,7 +90,7 @@ const NavBar = () => {
               />
             ) : (
               <div className="avatar" style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}>
-                {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+                {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
               </div>
             )}
             <div style={{ minWidth: 0 }}>
@@ -99,7 +99,7 @@ const NavBar = () => {
                 color: 'var(--color-text)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}>
-                {user.firstName || user.email.split('@')[0]}
+                {user.firstName || user.email?.split('@')[0]}
               </div>
               <div>
                 <span className={`badge badge-${user.role === 'ADMIN' ? 'danger' : user.role === 'RECRUITER' ? 'accent' : 'primary'}`}
@@ -117,13 +117,13 @@ const NavBar = () => {
             style={{ width: '100%', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
           >
             <LogOut size={16} />
-            {t('nav.logout')}
+            {t('nav.logout') || 'Logout'}
           </button>
         </div>
       ) : (
         <NavLink to="/login" className={linkClass} id="nav-login">
           <LogIn size={16} />
-          {t('nav.login')}
+          {t('nav.login') || 'Login'}
         </NavLink>
       )}
     </nav>

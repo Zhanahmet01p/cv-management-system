@@ -32,6 +32,7 @@ model User {
   lastName      String?
   location      String?
   photoUrl      String?
+  passwordHash  String?
   googleId      String?   @unique
   facebookId    String?   @unique
   version       Int       @default(1)

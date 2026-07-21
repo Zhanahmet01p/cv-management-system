@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { SearchProvider } from './context/SearchContext.jsx';
@@ -31,6 +32,29 @@ const RequireAuth = ({ children, roles }) => {
   return children;
 };
 
+// Обработчик OAuth токена в useEffect
+const LoginSuccess = () => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      login(token);
+      navigate('/profile', { replace: true });
+    } else {
+      navigate('/login', { replace: true });
+    }
+  }, [login, navigate]);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+      <div className="skeleton" style={{ width: '160px', height: '20px', borderRadius: '8px' }} />
+    </div>
+  );
+};
+
 const AppLayout = () => {
   return (
     <>
@@ -43,34 +67,43 @@ const AppLayout = () => {
             <Route path="/positions" element={<Positions />} />
             <Route path="/login" element={<Login />} />
             <Route path="/login-success" element={<LoginSuccess />} />
-            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-            <Route path="/cvs/:id" element={<RequireAuth><CVView /></RequireAuth>} />
+            
+            <Route path="/profile" element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            } />
+            
+            <Route path="/cvs/:id" element={
+              <RequireAuth>
+                <CVView />
+              </RequireAuth>
+            } />
+            
             <Route
               path="/admin"
-              element={<RequireAuth roles={['RECRUITER', 'ADMIN']}><AdminDashboard /></RequireAuth>}
+              element={
+                <RequireAuth roles={['RECRUITER', 'ADMIN']}>
+                  <AdminDashboard />
+                </RequireAuth>
+              }
             />
+            
             <Route
               path="/admin/users"
-              element={<RequireAuth roles={['ADMIN']}><AdminDashboard tab="users" /></RequireAuth>}
+              element={
+                <RequireAuth roles={['ADMIN']}>
+                  <AdminDashboard tab="users" />
+                </RequireAuth>
+              }
             />
+            
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
     </>
   );
-};
-
-// Handles OAuth callback token
-const LoginSuccess = () => {
-  const { login } = useAuth();
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (token) {
-    login(token);
-    window.location.replace('/profile');
-  }
-  return null;
 };
 
 const App = () => (

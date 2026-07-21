@@ -15,7 +15,8 @@ const Header = () => {
   const inputRef = useRef(null);
 
   const toggleLang = () => {
-    i18n.changeLanguage(i18n.language === 'en' ? 'ru' : 'en');
+    const nextLng = i18n.resolvedLanguage?.startsWith('ru') ? 'en' : 'ru';
+    i18n.changeLanguage(nextLng);
   };
 
   return (
@@ -51,7 +52,7 @@ const Header = () => {
           >
             <Globe size={17} />
             <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-              {i18n.language === 'en' ? 'EN' : 'RU'}
+              {i18n.resolvedLanguage?.startsWith('ru') ? 'RU' : 'EN'}
             </span>
           </button>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchCV, publishCV, toggleLike, createComment, saveAttributeValue } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -29,61 +29,44 @@ const CVView = () => {
   const isOwner = user?.id === data?.cv?.userId;
   const canEdit = isOwner || isAdmin;
 
-
-  const load = async () => {
+  // Единая функция загрузки
+  const load = useCallback(async (isPolling = false) => {
     try {
       const res = await fetchCV(id);
       setData(res.data);
       setLikeCount(res.data.cv?.likes?.length ?? 0);
       const myLike = res.data.cv?.likes?.some(l => l.userId === user?.id);
       setLiked(!!myLike);
+      if (!isPolling) setError('');
     } catch (e) {
-      setError(e.response?.data?.error || 'Could not load CV');
+      if (!isPolling) {
+        setError(e.response?.data?.error || 'Could not load CV');
+      }
     } finally {
-      setLoading(false);
+      if (!isPolling) setLoading(false);
     }
-  };
+  }, [id, user?.id]);
 
   useEffect(() => {
-    let active = true;
-    const fetchAll = async () => {
-      try {
-        const res = await fetchCV(id);
-        if (active) {
-          setData(res.data);
-          setLikeCount(res.data.cv?.likes?.length ?? 0);
-          const myLike = res.data.cv?.likes?.some(l => l.userId === user?.id);
-          setLiked(!!myLike);
-        }
-      } catch (e) {
-        if (active) setError(e.response?.data?.error || 'Could not load CV');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    fetchAll();
+    // Первичная загрузка
+    load(false);
 
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetchCV(id);
-        if (active) setData(res.data);
-      } catch {
-        // ignore errors on polling
-      }
+    // Запуск поллинга
+    pollRef.current = setInterval(() => {
+      load(true);
     }, POLL_INTERVAL);
 
     return () => {
-      active = false;
-      clearInterval(pollRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [id, user?.id]);
+  }, [load]);
 
   const handleAttrEdit = async (attrId, value, version) => {
     try {
       await saveAttributeValue({ attributeId: attrId, value, version });
-      await load();
+      await load(true);
     } catch (e) {
-      console.error('Attr save:', e);
+      console.error('Attr save error:', e);
     }
   };
 
@@ -92,7 +75,7 @@ const CVView = () => {
     setPublishMsg('');
     try {
       await publishCV(id, { version: data.cv.version });
-      await load();
+      await load(false);
       setPublishMsg('CV published! Recruiters can now see it.');
     } catch (e) {
       if (e.response?.status === 409) {
@@ -110,19 +93,26 @@ const CVView = () => {
     try {
       const res = await toggleLike(id);
       setLiked(res.data.liked);
-      setLikeCount(prev => res.data.liked ? prev + 1 : prev - 1);
-    } catch (e) { console.error(e); }
+      setLikeCount(prev => (res.data.liked ? prev + 1 : prev - 1));
+    } catch (e) {
+      console.error('Like error:', e);
+    }
   };
 
   const handleSendComment = async () => {
     if (!comment.trim()) return;
     setSending(true);
     try {
+      // Если комментарии должны быть к позиции, оставляем positionId.
+      // Если к конкретному CV — заменяем на id (или data.cv.id)
       await createComment(data.cv.positionId, comment);
       setComment('');
-      await load();
-    } catch (e) { console.error(e); }
-    finally { setSending(false); }
+      await load(true);
+    } catch (e) {
+      console.error('Comment error:', e);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handlePrint = () => window.print();
@@ -149,7 +139,9 @@ const CVView = () => {
   }
 
   const { cv, assembledData } = data;
-  const allFilled = (assembledData?.attributes || []).every(av => av.value !== '' && av.value !== null && av.value !== undefined);
+  const allFilled = (assembledData?.attributes || []).every(
+    av => av.value !== '' && av.value !== null && av.value !== undefined
+  );
 
   const position = cv?.position;
   const comments = position?.comments || [];
@@ -163,7 +155,6 @@ const CVView = () => {
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {/* Like (Recruiters only) */}
           {isRecruiter && (
             <button
               id="btn-like-cv"
@@ -179,7 +170,6 @@ const CVView = () => {
             <Printer size={15} /> {t('cv.printPdf')}
           </button>
 
-          {/* Publish (Owner/Admin only, when draft) */}
           {canEdit && cv.status === 'DRAFT' && (
             <button
               id="btn-publish-cv"
@@ -188,9 +178,11 @@ const CVView = () => {
               onClick={handlePublish}
               title={!allFilled ? t('cv.publishHint') : ''}
             >
-              {publishing
-                ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                : <CheckCircle size={15} />}
+              {publishing ? (
+                <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <CheckCircle size={15} />
+              )}
               {t('cv.publishBtn')}
             </button>
           )}
@@ -215,14 +207,23 @@ const CVView = () => {
 
       {/* Tabs */}
       <div className="tabs">
-        <button className={`tab${activeTab === 'cv' ? ' active' : ''}`}
-          onClick={() => setActiveTab('cv')}>
+        <button
+          className={`tab${activeTab === 'cv' ? ' active' : ''}`}
+          onClick={() => setActiveTab('cv')}
+        >
           CV
         </button>
-        <button className={`tab${activeTab === 'disc' ? ' active' : ''}`}
-          onClick={() => setActiveTab('disc')} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+        <button
+          className={`tab${activeTab === 'disc' ? ' active' : ''}`}
+          onClick={() => setActiveTab('disc')}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+        >
           <MessageSquare size={14} /> {t('cv.discussions')}
-          {comments.length > 0 && <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>{comments.length}</span>}
+          {comments.length > 0 && (
+            <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
+              {comments.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -234,8 +235,12 @@ const CVView = () => {
           <div className="card" style={{ padding: '1.75rem' }}>
             <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {assembledData.photoUrl && (
-                <img src={assembledData.photoUrl} alt="Photo"
-                  className="avatar" style={{ width: '5rem', height: '5rem', fontSize: '1.5rem' }} />
+                <img
+                  src={assembledData.photoUrl}
+                  alt="Photo"
+                  className="avatar"
+                  style={{ width: '5rem', height: '5rem', fontSize: '1.5rem' }}
+                />
               )}
               <div style={{ flex: 1 }}>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
@@ -270,6 +275,8 @@ const CVView = () => {
                 <tbody>
                   {assembledData.attributes.map((av, i) => {
                     const isEmpty = !av.value || av.value === '';
+                    const valString = typeof av.value === 'object' ? JSON.stringify(av.value) : (av.value || '');
+                    
                     return (
                       <tr key={av.id || i}>
                         <td className="cell-primary">{av.attribute?.name}</td>
@@ -277,15 +284,20 @@ const CVView = () => {
                         <td>
                           {canEdit ? (
                             <input
+                              key={`${av.id || i}-${av.version || valString}`} // Уникальный key синхронизирует defaultValue при поллинге
                               className={`input${isEmpty ? ' attr-empty' : ''}`}
                               style={{ padding: '0.3rem 0.625rem', fontSize: '0.85rem' }}
                               placeholder={isEmpty ? `⚠ ${t('cv.emptyAttr')}` : ''}
-                              defaultValue={typeof av.value === 'object' ? JSON.stringify(av.value) : (av.value || '')}
-                              onBlur={e => handleAttrEdit(av.attributeId || av.attribute?.id, e.target.value, av.version)}
+                              defaultValue={valString}
+                              onBlur={e => {
+                                if (e.target.value !== valString) {
+                                  handleAttrEdit(av.attributeId || av.attribute?.id, e.target.value, av.version);
+                                }
+                              }}
                             />
                           ) : (
                             <span className={isEmpty ? 'badge badge-danger' : ''} style={{ fontSize: '0.875rem' }}>
-                              {isEmpty ? `⚠ ${t('cv.emptyAttr')}` : (typeof av.value === 'object' ? JSON.stringify(av.value) : av.value)}
+                              {isEmpty ? `⚠ ${t('cv.emptyAttr')}` : valString}
                             </span>
                           )}
                         </td>
@@ -303,10 +315,15 @@ const CVView = () => {
               <h2 className="section-title" style={{ marginBottom: '1rem' }}>Projects</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {assembledData.projects.map(proj => (
-                  <div key={proj.id} style={{
-                    padding: '1rem', background: 'var(--color-surface-2)',
-                    borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)'
-                  }}>
+                  <div
+                    key={proj.id}
+                    style={{
+                      padding: '1rem',
+                      background: 'var(--color-surface-2)',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--color-border)'
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text)' }}>{proj.name}</div>
@@ -315,7 +332,11 @@ const CVView = () => {
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                        {(proj.tags || []).map(tag => <span key={tag} className="tag">{tag}</span>)}
+                        {(proj.tags || []).map((tag, tIdx) => (
+                          <span key={tIdx} className="tag">
+                            {typeof tag === 'string' ? tag : tag.name}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     {proj.description && (
@@ -334,34 +355,36 @@ const CVView = () => {
       {/* ── Discussion Tab ── */}
       {activeTab === 'disc' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Comments list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {comments.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon"><MessageSquare size={20} /></div>
                 <div>No comments yet. Be the first!</div>
               </div>
-            ) : comments.map(c => (
-              <div key={c.id} className="comment-card">
-                <div className="comment-meta">
-                  <span className="comment-author">
-                    {isRecruiter
-                      ? <Link to="#" style={{ color: 'var(--color-primary)' }}>
+            ) : (
+              comments.map(c => (
+                <div key={c.id} className="comment-card">
+                  <div className="comment-meta">
+                    <span className="comment-author">
+                      {isRecruiter ? (
+                        <Link to="#" style={{ color: 'var(--color-primary)' }}>
                           {c.user?.firstName || c.user?.email?.split('@')[0] || 'User'}
                         </Link>
-                      : (c.user?.firstName || 'User')}
-                  </span>
-                  <span>•</span>
-                  <span>{new Date(c.createdAt).toLocaleString()}</span>
+                      ) : (
+                        c.user?.firstName || 'User'
+                      )}
+                    </span>
+                    <span>•</span>
+                    <span>{new Date(c.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-2)', lineHeight: 1.7 }}>
+                    {c.text}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-2)', lineHeight: 1.7 }}>
-                  {c.text}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
-          {/* New comment */}
           {user && (
             <div className="card" style={{ padding: '1rem' }}>
               <textarea
@@ -379,7 +402,11 @@ const CVView = () => {
                   disabled={sending || !comment.trim()}
                   onClick={handleSendComment}
                 >
-                  {sending ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} />}
+                  {sending ? (
+                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <Send size={15} />
+                  )}
                   {t('cv.sendComment')}
                 </button>
               </div>

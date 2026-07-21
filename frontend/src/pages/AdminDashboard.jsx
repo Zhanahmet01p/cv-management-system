@@ -5,7 +5,7 @@ import {
 } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit3, Trash2, ShieldOff, X, Check, Loader2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, ShieldOff, X, Check, Loader2, Search, Tag, Users } from 'lucide-react';
 
 const ATTR_TYPES = ['STRING', 'TEXT', 'IMAGE', 'NUMERIC', 'DATE', 'PERIOD', 'BOOLEAN', 'SELECT'];
 const ATTR_CATEGORIES = ['Certification', 'Domain Knowledge', 'Personal Information', 'Soft Skills', 'Technical Skills', 'Language', 'Other'];
@@ -14,7 +14,12 @@ const ROLES = ['CANDIDATE', 'RECRUITER', 'ADMIN'];
 /* ─────────── Attribute Modal ─────────── */
 const AttrModal = ({ attr, onClose, onSaved }) => {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ category: attr?.category || '', name: attr?.name || '', type: attr?.type || 'STRING', version: attr?.version ?? 1 });
+  const [form, setForm] = useState({
+    category: attr?.category || '',
+    name: attr?.name || '',
+    type: attr?.type || 'STRING',
+    version: attr?.version ?? 1
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,8 +35,8 @@ const AttrModal = ({ attr, onClose, onSaved }) => {
       }
       onSaved();
     } catch (err) {
-      if (err.response?.status === 409) setError('Version conflict');
-      else setError(err.response?.data?.error || 'Failed');
+      if (err.response?.status === 409) setError('Version conflict. Please reload.');
+      else setError(err.response?.data?.error || 'Failed to save attribute');
     } finally {
       setSaving(false);
     }
@@ -71,7 +76,7 @@ const AttrModal = ({ attr, onClose, onSaved }) => {
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+              {saving ? <Loader2 size={15} className="spin" style={{ animation: 'spin 1s linear infinite' }} /> : null}
               {saving ? t('common.loading') : t('common.save')}
             </button>
           </div>
@@ -91,66 +96,108 @@ const AdminDashboard = ({ tab: initialTab }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
-    const [actionMsg, setActionMsg] = useState('');
+  const [actionMsg, setActionMsg] = useState('');
+  
+  // Search Filters
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isAdmin = user?.role === 'ADMIN';
 
-  const load = useCallback(async () => {
+  // Синхронизация внешнего пропа tab при роутинге
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab === 'users' ? 'users' : 'attrs');
+    }
+  }, [initialTab]);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const aRes = await fetchAttributes();
-      setAttributes(aRes.data);
+      setAttributes(aRes.data || []);
       if (isAdmin) {
         const uRes = await fetchUsers();
-        setUsers(uRes.data);
+        setUsers(uRes.data || []);
       }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) { 
+      console.error('Failed to load admin data:', e); 
+    } finally { 
+      setLoading(false); 
+    }
   }, [isAdmin]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { 
+    loadData(); 
+  }, [loadData]);
 
-  const showMsg = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), 4000); };
+  const showMsg = (msg) => { 
+    setActionMsg(msg); 
+    setTimeout(() => setActionMsg(''), 4000); 
+  };
 
+  // Удаление атрибута с локальным обновлением
   const handleDeleteAttr = async (attr) => {
     if (!window.confirm(`Delete attribute "${attr.name}"?`)) return;
     try {
       await deleteAttribute(attr.id);
-      await load();
+      setAttributes(prev => prev.filter(a => a.id !== attr.id));
       showMsg('Attribute deleted');
-    } catch { showMsg('Delete failed'); }
+    } catch { 
+      showMsg('Delete failed. Attribute may be used in active positions.'); 
+    }
   };
 
+  // Блокировка пользователя с точечным обновлением
   const handleToggleBlock = async (u) => {
     try {
-      await toggleBlockUser(u.id, u.version);
-      await load();
-      showMsg(`User ${u.blocked ? 'unblocked' : 'blocked'}`);
-    } catch { showMsg('Action failed'); }
+      const res = await toggleBlockUser(u.id, u.version);
+      const updatedBlocked = res.data?.blocked ?? !u.blocked;
+      setUsers(prev => prev.map(usr => usr.id === u.id ? { ...usr, blocked: updatedBlocked, version: (usr.version || 1) + 1 } : usr));
+      showMsg(`User ${updatedBlocked ? 'blocked' : 'unblocked'}`);
+    } catch { 
+      showMsg('Action failed'); 
+    }
   };
 
+  // Смена роли пользователя с точечным обновлением
   const handleRoleChange = async (u, newRole) => {
     try {
       await updateUserRole(u.id, newRole, u.version);
-      await load();
+      setUsers(prev => prev.map(usr => usr.id === u.id ? { ...usr, role: newRole, version: (usr.version || 1) + 1 } : usr));
       showMsg('Role updated');
-    } catch { showMsg('Role change failed'); }
+    } catch { 
+      showMsg('Role change failed'); 
+    }
   };
 
+  // Удаление пользователя с точечным обновлением
   const handleDeleteUser = async (u) => {
     if (u.id === user?.id) { showMsg("You can't delete yourself"); return; }
     if (!window.confirm(`Delete user ${u.email}?`)) return;
     try {
       await deleteUser(u.id);
-      await load();
+      setUsers(prev => prev.filter(usr => usr.id !== u.id));
       showMsg('User deleted');
-    } catch { showMsg('Delete failed'); }
+    } catch { 
+      showMsg('Delete failed'); 
+    }
   };
 
+  // Фильтрация
+  const filteredAttributes = attributes.filter(a => 
+    (a.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (a.category || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredUsers = users.filter(u => 
+    (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.lastName || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const TABS = [
-    { id: 'attrs', label: t('admin.attributes') },
-    ...(isAdmin ? [{ id: 'users', label: t('admin.users') }] : []),
+    { id: 'attrs', label: t('admin.attributes') || 'Attributes' },
+    ...(isAdmin ? [{ id: 'users', label: t('admin.users') || 'Users' }] : []),
   ];
 
   return (
@@ -162,8 +209,21 @@ const AdminDashboard = ({ tab: initialTab }) => {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 className="page-title">{t('admin.title')}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1 className="page-title">{t('admin.title') || 'Admin Panel'}</h1>
+        
+        {/* Search Input */}
+        <div style={{ position: 'relative', width: '260px' }}>
+          <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-3)' }} />
+          <input
+            type="text"
+            className="input"
+            style={{ paddingLeft: '2.25rem', fontSize: '0.85rem' }}
+            placeholder={activeTab === 'attrs' ? "Search attributes..." : "Search users..."}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Tabs */}
@@ -173,7 +233,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
             key={tab.id}
             id={`admin-tab-${tab.id}`}
             className={`tab${activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
           >
             {tab.label}
           </button>
@@ -185,7 +245,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button id="btn-create-attribute" className="btn btn-primary" onClick={() => setModal({})}>
-              <Plus size={16} /> {t('admin.createAttribute')}
+              <Plus size={16} /> {t('admin.createAttribute') || 'Create Attribute'}
             </button>
           </div>
 
@@ -194,27 +254,27 @@ const AdminDashboard = ({ tab: initialTab }) => {
               <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                 {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: '2.25rem', borderRadius: 'var(--radius)' }} />)}
               </div>
-            ) : attributes.length === 0 ? (
+            ) : filteredAttributes.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-icon">📚</div>
-                <div>{t('admin.noAttributes')}</div>
+                <div className="empty-icon"><Tag size={24} /></div>
+                <div>{searchQuery ? 'No attributes match your query' : (t('admin.noAttributes') || 'No attributes found')}</div>
               </div>
             ) : (
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>{t('admin.attrName')}</th>
-                    <th>{t('admin.attrCategory')}</th>
-                    <th>{t('admin.attrType')}</th>
+                    <th>{t('admin.attrName') || 'Name'}</th>
+                    <th>{t('admin.attrCategory') || 'Category'}</th>
+                    <th>{t('admin.attrType') || 'Type'}</th>
                     <th>Used In</th>
                     <th style={{ width: '6rem' }} />
                   </tr>
                 </thead>
                 <tbody>
-                  {attributes.map(a => (
+                  {filteredAttributes.map(a => (
                     <tr key={a.id}>
                       <td className="cell-primary">{a.name}</td>
-                      <td><span className="badge badge-neutral">{a.category}</span></td>
+                      <td><span className="badge badge-neutral">{a.category || 'General'}</span></td>
                       <td>
                         <span className="badge badge-accent" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{a.type}</span>
                       </td>
@@ -255,6 +315,11 @@ const AdminDashboard = ({ tab: initialTab }) => {
             <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: '2.5rem', borderRadius: 'var(--radius)' }} />)}
             </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><Users size={24} /></div>
+              <div>{searchQuery ? 'No users match your search' : 'No users found'}</div>
+            </div>
           ) : (
             <table className="data-table">
               <thead>
@@ -263,11 +328,11 @@ const AdminDashboard = ({ tab: initialTab }) => {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>{t('common.actions')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('common.actions') || 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
+                {filteredUsers.map(u => (
                   <tr key={u.id} style={u.blocked ? { opacity: 0.55 } : {}}>
                     <td className="cell-primary">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -275,41 +340,28 @@ const AdminDashboard = ({ tab: initialTab }) => {
                           <img src={u.photoUrl} alt="" className="avatar" style={{ width: '1.75rem', height: '1.75rem', fontSize: '0.7rem' }} />
                         ) : (
                           <div className="avatar" style={{ width: '1.75rem', height: '1.75rem', fontSize: '0.7rem' }}>
-                            {(u.firstName?.[0] || u.email[0]).toUpperCase()}
+                            {(u.firstName?.[0] || u.email?.[0] || 'U').toUpperCase()}
                           </div>
                         )}
-                        {u.firstName ? `${u.firstName} ${u.lastName || ''}` : u.email.split('@')[0]}
+                        {u.firstName ? `${u.firstName} ${u.lastName || ''}` : u.email?.split('@')[0]}
                         {u.id === user?.id && <span className="badge badge-primary" style={{ fontSize: '0.62rem' }}>You</span>}
                       </div>
                     </td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--color-text-3)' }}>{u.email}</td>
                     <td>
-                      {u.id === user?.id ? (
-                        // Self: can demote but see warning
-                        <select
-                          className="select"
-                          style={{ width: '120px', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
-                          value={u.role}
-                          onChange={e => {
-                            if (e.target.value !== u.role) {
-                              if (window.confirm(`Change YOUR role to ${e.target.value}? You may lose admin access.`)) {
-                                handleRoleChange(u, e.target.value);
-                              }
-                            }
-                          }}
-                        >
-                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                      ) : (
-                        <select
-                          className="select"
-                          style={{ width: '120px', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
-                          value={u.role}
-                          onChange={e => handleRoleChange(u, e.target.value)}
-                        >
-                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                      )}
+                      <select
+                        className="select"
+                        style={{ width: '120px', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                        value={u.role}
+                        onChange={e => {
+                          if (u.id === user?.id && e.target.value !== u.role) {
+                            if (!window.confirm(`Change YOUR role to ${e.target.value}? You may lose admin access.`)) return;
+                          }
+                          handleRoleChange(u, e.target.value);
+                        }}
+                      >
+                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
                     </td>
                     <td>
                       <span className={`badge ${u.blocked ? 'badge-danger' : 'badge-success'}`}>
@@ -323,7 +375,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
                             <button
                               className={`btn btn-sm ${u.blocked ? 'btn-success' : 'btn-outline'}`}
                               onClick={() => handleToggleBlock(u)}
-                              title={u.blocked ? t('admin.unblockUser') : t('admin.blockUser')}
+                              title={u.blocked ? (t('admin.unblockUser') || 'Unblock') : (t('admin.blockUser') || 'Block')}
                             >
                               {u.blocked ? <Check size={14} /> : <ShieldOff size={14} />}
                               {u.blocked ? 'Unblock' : 'Block'}
@@ -332,7 +384,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
                               className="btn btn-danger btn-sm"
                               onClick={() => handleDeleteUser(u)}
                             >
-                              <Trash2 size={14} /> {t('admin.deleteUser')}
+                              <Trash2 size={14} /> {t('admin.deleteUser') || 'Delete'}
                             </button>
                           </>
                         )}
@@ -349,9 +401,10 @@ const AdminDashboard = ({ tab: initialTab }) => {
       {/* Attribute Modal */}
       {modal !== null && (
         <AttrModal
+          key={modal?.id || 'new-attr'}
           attr={modal?.id ? modal : null}
           onClose={() => setModal(null)}
-          onSaved={async () => { setModal(null); await load(); showMsg('Saved!'); }}
+          onSaved={async () => { setModal(null); await loadData(); showMsg('Saved successfully!'); }}
         />
       )}
     </div>
