@@ -7,12 +7,11 @@ const AvatarModal = ({ currentUrl, onClose, Save }) => {
   const [preview, setPreview] = useState(currentUrl || '');
   const [error, setError] = useState('');
 
-  // Преобразование локального файла в Base64 строку
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) { // Ограничение 2 МБ
+    if (file.size > 2 * 1024 * 1024) { // 2 MB limit
       setError('file size should be less than 2MB');
       return;
     }
@@ -42,7 +41,7 @@ const AvatarModal = ({ currentUrl, onClose, Save }) => {
           <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
 
-        {/* Tab Switcher */}
+        {}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--color-border)' }}>
           <button 
             className={`btn btn-sm ${tab === 'file' ? 'btn-primary' : 'btn-ghost'}`} 
@@ -60,7 +59,7 @@ const AvatarModal = ({ currentUrl, onClose, Save }) => {
           </button>
         </div>
 
-        {/* Preview */}
+        {}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
           {preview ? (
             <img src={preview} alt="Preview" className="avatar" style={{ width: '5rem', height: '5rem', objectFit: 'cover' }} />
@@ -71,21 +70,12 @@ const AvatarModal = ({ currentUrl, onClose, Save }) => {
           )}
         </div>
 
-        {/* File Upload */}
+        {}
         {tab === 'file' && (
           <div>
             <input 
               type="file" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-              className="input" 
-              style={{ padding: '0.4rem' }}
-            />
-            {error && <p style={{ color: 'var(--color-danger)', fontSize: '0.8rem', marginTop: '0.4rem' }}>{error}</p>}
-          </div>
-        )}
-
-        {/* URL Input */}
+              accept="image}
         {tab === 'url' && (
           <div>
             <label className="label">Image URL</label>

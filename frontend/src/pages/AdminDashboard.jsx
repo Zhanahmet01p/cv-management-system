@@ -11,7 +11,6 @@ const ATTR_TYPES = ['STRING', 'TEXT', 'IMAGE', 'NUMERIC', 'DATE', 'PERIOD', 'BOO
 const ATTR_CATEGORIES = ['Certification', 'Domain Knowledge', 'Personal Information', 'Soft Skills', 'Technical Skills', 'Language', 'Other'];
 const ROLES = ['CANDIDATE', 'RECRUITER', 'ADMIN'];
 
-/* ─────────── Attribute Modal ─────────── */
 const AttrModal = ({ attr, onClose, onSaved }) => {
   const { t } = useTranslation();
   const [form, setForm] = useState({
@@ -86,7 +85,6 @@ const AttrModal = ({ attr, onClose, onSaved }) => {
   );
 };
 
-/* ─────────── Admin Dashboard ─────────── */
 const AdminDashboard = ({ tab: initialTab }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -97,13 +95,11 @@ const AdminDashboard = ({ tab: initialTab }) => {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
-  
-  // Search Filters
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const isAdmin = user?.role === 'ADMIN';
 
-  // Синхронизация внешнего пропа tab при роутинге
   useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab === 'users' ? 'users' : 'attrs');
@@ -135,7 +131,6 @@ const AdminDashboard = ({ tab: initialTab }) => {
     setTimeout(() => setActionMsg(''), 4000); 
   };
 
-  // Удаление атрибута с локальным обновлением
   const handleDeleteAttr = async (attr) => {
     if (!window.confirm(`Delete attribute "${attr.name}"?`)) return;
     try {
@@ -147,7 +142,6 @@ const AdminDashboard = ({ tab: initialTab }) => {
     }
   };
 
-  // Блокировка пользователя с точечным обновлением
   const handleToggleBlock = async (u) => {
     try {
       const res = await toggleBlockUser(u.id, u.version);
@@ -159,7 +153,6 @@ const AdminDashboard = ({ tab: initialTab }) => {
     }
   };
 
-  // Смена роли пользователя с точечным обновлением
   const handleRoleChange = async (u, newRole) => {
     try {
       await updateUserRole(u.id, newRole, u.version);
@@ -170,7 +163,6 @@ const AdminDashboard = ({ tab: initialTab }) => {
     }
   };
 
-  // Удаление пользователя с точечным обновлением
   const handleDeleteUser = async (u) => {
     if (u.id === user?.id) { showMsg("You can't delete yourself"); return; }
     if (!window.confirm(`Delete user ${u.email}?`)) return;
@@ -183,7 +175,6 @@ const AdminDashboard = ({ tab: initialTab }) => {
     }
   };
 
-  // Фильтрация
   const filteredAttributes = attributes.filter(a => 
     (a.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (a.category || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -202,7 +193,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Toast */}
+      {}
       {actionMsg && (
         <div className="alert alert-info" style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 200, maxWidth: '360px' }}>
           {actionMsg}
@@ -212,7 +203,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 className="page-title">{t('admin.title') || 'Admin Panel'}</h1>
         
-        {/* Search Input */}
+        {}
         <div style={{ position: 'relative', width: '260px' }}>
           <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-3)' }} />
           <input
@@ -226,7 +217,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {}
       <div className="tabs">
         {TABS.map(tab => (
           <button
@@ -240,7 +231,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
         ))}
       </div>
 
-      {/* ── Attribute Library Tab ── */}
+      {}
       {activeTab === 'attrs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -308,7 +299,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
         </div>
       )}
 
-      {/* ── User Management Tab ── */}
+      {}
       {activeTab === 'users' && isAdmin && (
         <div className="card" style={{ overflow: 'hidden' }}>
           {loading ? (
@@ -398,7 +389,7 @@ const AdminDashboard = ({ tab: initialTab }) => {
         </div>
       )}
 
-      {/* Attribute Modal */}
+      {}
       {modal !== null && (
         <AttrModal
           key={modal?.id || 'new-attr'}

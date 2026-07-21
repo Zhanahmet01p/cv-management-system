@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { apiUrl } from '../api.js';
@@ -27,14 +27,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       localStorage.setItem('token', token);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       fetchUser();
     } else {
       localStorage.removeItem('token');
       setUser(null);
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [token]);
 
   

@@ -1,6 +1,5 @@
 const { prisma, updateWithOptimisticLock } = require('../db');
 
-// Get full profile data
 exports.getProfile = async (req, res) => {
   const userId = req.user.id;
 
@@ -32,7 +31,6 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Update "Me" section (built-in attributes)
 exports.updateMe = async (req, res) => {
   const userId = req.user.id;
   const { firstName, lastName, location, photoUrl, version } = req.body;
@@ -51,19 +49,18 @@ exports.updateMe = async (req, res) => {
   }
 };
 
-// Add or update an attribute value in "Info" section
 exports.upsertAttributeInfo = async (req, res) => {
   const userId = req.user.id;
   const { attributeId, value, version } = req.body;
 
   try {
-    // Try to find existing first
+
     const existing = await prisma.userAttributeValue.findUnique({
       where: { userId_attributeId: { userId, attributeId } }
     });
 
     if (existing) {
-      // Update with optimistic lock
+
       const lockVersion = version || existing.version;
       const result = await prisma.userAttributeValue.updateMany({
         where: { userId, attributeId, version: lockVersion },
@@ -81,7 +78,6 @@ exports.upsertAttributeInfo = async (req, res) => {
       return res.json(updated);
     }
 
-    // Create new
     const created = await prisma.userAttributeValue.create({
       data: { userId, attributeId, value: value || '', version: 1 },
       include: { attribute: true }
@@ -95,7 +91,6 @@ exports.upsertAttributeInfo = async (req, res) => {
   }
 };
 
-// Projects management
 exports.addProject = async (req, res) => {
   const userId = req.user.id;
   const { name, startDate, endDate, description, tags } = req.body;

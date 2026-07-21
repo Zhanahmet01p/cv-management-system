@@ -1,6 +1,5 @@
 const { prisma, updateWithOptimisticLock } = require('../db');
 
-// Get all positions (Public or filtered by access rules)
 exports.getAllPositions = async (req, res) => {
   try {
     const positions = await prisma.position.findMany({
@@ -21,7 +20,6 @@ exports.getAllPositions = async (req, res) => {
   }
 };
 
-// Get single position with details
 exports.getPositionById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -43,7 +41,6 @@ exports.getPositionById = async (req, res) => {
   }
 };
 
-// Create position (Recruiter/Admin only)
 exports.createPosition = async (req, res) => {
   const { title, description, accessRules, maxProjects, attributeIds, tags } = req.body;
   try {
@@ -67,7 +64,6 @@ exports.createPosition = async (req, res) => {
   }
 };
 
-// Update position with Optimistic Locking
 exports.updatePosition = async (req, res) => {
   const { id } = req.params;
   const { title, description, accessRules, maxProjects, attributeIds, tags, version } = req.body;
@@ -125,7 +121,6 @@ exports.updatePosition = async (req, res) => {
   }
 };
 
-// Duplicate position
 exports.duplicatePosition = async (req, res) => {
   const { id } = req.params;
   try {

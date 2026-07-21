@@ -29,7 +29,6 @@ const CVView = () => {
   const isOwner = user?.id === data?.cv?.userId;
   const canEdit = isOwner || isAdmin;
 
-  // Единая функция загрузки
   const load = useCallback(async (isPolling = false) => {
     try {
       const res = await fetchCV(id);
@@ -48,10 +47,9 @@ const CVView = () => {
   }, [id, user?.id]);
 
   useEffect(() => {
-    // Первичная загрузка
+
     load(false);
 
-    // Запуск поллинга
     pollRef.current = setInterval(() => {
       load(true);
     }, POLL_INTERVAL);
@@ -103,8 +101,7 @@ const CVView = () => {
     if (!comment.trim()) return;
     setSending(true);
     try {
-      // Если комментарии должны быть к позиции, оставляем positionId.
-      // Если к конкретному CV — заменяем на id (или data.cv.id)
+
       await createComment(data.cv.positionId, comment);
       setComment('');
       await load(true);
@@ -148,7 +145,7 @@ const CVView = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Back + Actions */}
+      {}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Link to="/profile" className="btn btn-ghost btn-sm">
           <ArrowLeft size={15} /> {t('common.back')}
@@ -205,7 +202,7 @@ const CVView = () => {
         </div>
       )}
 
-      {/* Tabs */}
+      {}
       <div className="tabs">
         <button
           className={`tab${activeTab === 'cv' ? ' active' : ''}`}
@@ -227,11 +224,11 @@ const CVView = () => {
         </button>
       </div>
 
-      {/* ── CV Tab ── */}
+      {}
       {activeTab === 'cv' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-          {/* Candidate header section */}
+          {}
           <div className="card" style={{ padding: '1.75rem' }}>
             <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {assembledData.photoUrl && (
@@ -258,7 +255,7 @@ const CVView = () => {
             </div>
           </div>
 
-          {/* Attributes */}
+          {}
           {(assembledData.attributes || []).length > 0 && (
             <div className="card" style={{ overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.25rem 0.5rem', borderBottom: '1px solid var(--color-border)' }}>
@@ -284,7 +281,7 @@ const CVView = () => {
                         <td>
                           {canEdit ? (
                             <input
-                              key={`${av.id || i}-${av.version || valString}`} // Уникальный key синхронизирует defaultValue при поллинге
+                              key={`${av.id || i}-${av.version || valString}`} // A unique key keeps defaultValue in sync during polling
                               className={`input${isEmpty ? ' attr-empty' : ''}`}
                               style={{ padding: '0.3rem 0.625rem', fontSize: '0.85rem' }}
                               placeholder={isEmpty ? `⚠ ${t('cv.emptyAttr')}` : ''}
@@ -309,7 +306,7 @@ const CVView = () => {
             </div>
           )}
 
-          {/* Projects */}
+          {}
           {(assembledData.projects || []).length > 0 && (
             <div className="card" style={{ padding: '1.25rem' }}>
               <h2 className="section-title" style={{ marginBottom: '1rem' }}>Projects</h2>
@@ -352,7 +349,7 @@ const CVView = () => {
         </div>
       )}
 
-      {/* ── Discussion Tab ── */}
+      {}
       {activeTab === 'disc' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

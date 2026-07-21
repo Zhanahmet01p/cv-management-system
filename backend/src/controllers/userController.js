@@ -43,7 +43,6 @@ exports.toggleBlockUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Prevent blocking oneself
     if (user.id === req.user.id) {
       return res.status(400).json({ error: 'You cannot block yourself' });
     }
@@ -70,7 +69,6 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Prevent deleting oneself
     if (user.id === req.user.id) {
       return res.status(400).json({ error: 'You cannot delete yourself' });
     }

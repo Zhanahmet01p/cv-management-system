@@ -37,8 +37,7 @@ model User {
   facebookId    String?   @unique
   version       Int       @default(1)
   blocked       Boolean   @default(false)
-  
-  // Relations
+
   projects      Project[]
   cvs           CV[]
   attributeValues UserAttributeValue[]
@@ -57,8 +56,7 @@ model Attribute {
   name        String        @unique
   type        AttributeType
   version     Int           @default(1)
-  
-  // Relations
+
   userValues  UserAttributeValue[]
   positions   PositionAttribute[]
 }
@@ -83,8 +81,7 @@ model Position {
   accessRules     Json?     // Rules for who can see/apply
   maxProjects     Int       @default(3)
   version         Int       @default(1)
-  
-  // Relations
+
   attributes      PositionAttribute[]
   cvs             CV[]
   comments        Comment[]

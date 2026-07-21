@@ -63,15 +63,12 @@ const Login = () => {
     { value: 'RECRUITER', label: t('login.roleRecruiter') },
   ];
 
-  // Main tabs: 'signin' | 'signup' | 'dev'
   const [activeTab, setActiveTab] = useState('signin');
 
-  // --- Sign In fields ---
   const [signInEmail,    setSignInEmail]    = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [showSignInPw,   setShowSignInPw]   = useState(false);
 
-  // --- Sign Up fields ---
   const [regEmail,     setRegEmail]     = useState('');
   const [regPassword,  setRegPassword]  = useState('');
   const [regFirstName, setRegFirstName] = useState('');
@@ -83,7 +80,6 @@ const Login = () => {
   const [error,   setError]   = useState('');
   const [success, setSuccess] = useState('');
 
-  // Handle token/error coming back from OAuth redirect
   useEffect(() => {
     const token = searchParams.get('token');
     const err   = searchParams.get('error');
@@ -104,7 +100,6 @@ const Login = () => {
     if (user) navigate('/', { replace: true });
   }, [user, navigate]);
 
-  // ── Sign In (email + password) ──────────────────────────
   const handleSignIn = async (e) => {
     e.preventDefault();
     if (!signInEmail.trim() || !signInPassword) {
@@ -131,7 +126,6 @@ const Login = () => {
     }
   };
 
-  // ── Register (email + password) ─────────────────────────
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!regEmail.trim() || !regPassword) {
@@ -169,12 +163,10 @@ const Login = () => {
     }
   };
 
-  // ── OAuth redirects ─────────────────────────────────────
   const handleOAuth = (provider) => {
     window.location.href = `${API_BASE}/api/auth/${provider}`;
   };
 
-  // ── Dev login ───────────────────────────────────────────
   const handleDevLogin = async (devRole) => {
     setLoading(devRole);
     setError('');
@@ -207,7 +199,7 @@ const Login = () => {
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', minHeight: '80vh', gap: '1.25rem', padding: '2rem 1rem'
     }}>
-      {/* Hero */}
+      {}
       <div style={{ textAlign: 'center', maxWidth: '480px' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -226,7 +218,7 @@ const Login = () => {
         </p>
       </div>
 
-      {/* Tabs */}
+      {}
       <div style={{
         display: 'flex', gap: '0.2rem', padding: '0.3rem',
         background: 'var(--color-surface-2)', borderRadius: 'var(--radius-lg)',
@@ -248,10 +240,10 @@ const Login = () => {
 
       <div className="card" style={{ width: '100%', maxWidth: '440px', padding: '1.75rem' }}>
 
-        {/* ─── SIGN IN ─────────────────────────────────── */}
+        {}
         {activeTab === 'signin' && (
           <>
-            {/* Social Login */}
+            {}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1.25rem' }}>
               <button
                 id="btn-google-login"
@@ -282,7 +274,7 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Divider */}
+            {}
             <div style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               marginBottom: '1.25rem', color: 'var(--color-text-3)', fontSize: '0.8rem'
@@ -292,7 +284,7 @@ const Login = () => {
               <hr className="divider" style={{ flex: 1 }} />
             </div>
 
-            {/* Email + Password Form */}
+            {}
             <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <Input
                 id="input-signin-email"
@@ -352,12 +344,11 @@ const Login = () => {
           </>
         )}
 
-        {/* ─── SIGN UP ─────────────────────────────────── */}
+        {}
         {activeTab === 'signup' && (
           <>
 
-
-            {/* Registration Form */}
+            {}
             <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <Input
                 id="input-reg-email"
@@ -464,7 +455,7 @@ const Login = () => {
           </>
         )}
 
-        {/* ─── DEV PANEL ───────────────────────────────── */}
+        {}
         {activeTab === 'dev' && (
           <div>
             <div style={{ marginBottom: '1rem' }}>

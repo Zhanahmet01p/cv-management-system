@@ -40,15 +40,12 @@ const Home = () => {
     load();
   }, []);
 
-  // Извлечение всех тегов (с защитой от строк/объектов)
   const allTags = [...new Set(
     positions.flatMap(p => (p.tags || []).map(tag => typeof tag === 'string' ? tag : tag.name)).filter(Boolean)
   )];
 
-  // Популярные вакансии (топ-5 по количеству CV)
   const popular = [...positions].sort((a, b) => (b._count?.cvs ?? 0) - (a._count?.cvs ?? 0)).slice(0, 5);
-  
-  // Последние вакансии (первые 8)
+
   const latest = positions.slice(0, 8);
 
   const statItems = stats ? [
@@ -62,7 +59,7 @@ const Home = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Метрики системы */}
+      {}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <BarChart2 size={18} style={{ color: 'var(--color-primary)' }} />
@@ -85,10 +82,10 @@ const Home = () => {
         )}
       </section>
 
-      {/* Основной контент */}
+      {}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '1.25rem', alignItems: 'start' }}>
         
-        {/* Свежие вакансии */}
+        {}
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -151,10 +148,10 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Правая колонка */}
+        {}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           
-          {/* Популярные позиции */}
+          {}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
               <TrendingUp size={16} style={{ color: 'var(--color-accent)' }} />
@@ -194,7 +191,7 @@ const Home = () => {
             </div>
           </section>
 
-          {/* Облако тегов */}
+          {}
           {allTags.length > 0 && (
             <section>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>

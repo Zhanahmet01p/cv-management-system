@@ -76,7 +76,7 @@ const NavBar = () => {
 
       {user ? (
         <div>
-          {/* Информация о пользователе */}
+          {/* User info */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.625rem',
             padding: '0.5rem 0.875rem', marginBottom: '0.5rem'

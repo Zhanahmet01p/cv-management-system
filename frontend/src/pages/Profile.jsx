@@ -24,7 +24,6 @@ const TABS = [
 
 const EMPTY_PROJECT = { name: '', startDate: '', endDate: '', description: '', tags: '' };
 
-/* ─────────── Main Profile Component ─────────── */
 const Profile = () => {
   const { setUser } = useAuth();
   const { t } = useTranslation();
@@ -53,7 +52,6 @@ const Profile = () => {
     load();
   }, []);
 
-  // Auto-save logic
   const handleSave = useCallback(async () => {
     if (!profile) return;
     setSaveStatus('saving');
@@ -280,7 +278,7 @@ const Profile = () => {
 
       {activeTab === 'cvs' && <ProfileCVsTab profile={profile} t={t} />}
 
-      {/* Avatar Modal */}
+      {}
       {showAvatarModal && (
         <AvatarModal
           currentUrl={profile.photoUrl}

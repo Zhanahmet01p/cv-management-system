@@ -2,9 +2,7 @@ const passport = require('passport');
 const bcrypt = require('bcrypt');
 const { prisma } = require('./db');
 
-// ─────────────────────────────────────────────
-// Google OAuth Strategy
-// ─────────────────────────────────────────────
+
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const isGoogleAuthEnabled  = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
@@ -53,9 +51,7 @@ if (isGoogleAuthEnabled) {
   console.warn('Google OAuth disabled: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set.');
 }
 
-// ─────────────────────────────────────────────
-// Facebook OAuth Strategy
-// ─────────────────────────────────────────────
+
 const FACEBOOK_APP_ID     = process.env.FACEBOOK_APP_ID;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
 const isFacebookAuthEnabled = Boolean(FACEBOOK_APP_ID && FACEBOOK_APP_SECRET);
@@ -74,7 +70,6 @@ if (isFacebookAuthEnabled) {
         const email    = profile.emails?.[0]?.value;
         const photoUrl = profile.photos?.[0]?.value || null;
 
-        // Facebook may not return email if user declined the permission
         if (!email) {
           return done(new Error('Facebook account did not provide an email address'), null);
         }
@@ -109,9 +104,7 @@ if (isFacebookAuthEnabled) {
   console.warn('Facebook OAuth disabled: FACEBOOK_APP_ID / FACEBOOK_APP_SECRET not set.');
 }
 
-// ─────────────────────────────────────────────
-// Local Strategy (email + password)
-// ─────────────────────────────────────────────
+
 const LocalStrategy = require('passport-local').Strategy;
 passport.use('local', new LocalStrategy(
   { usernameField: 'email', passwordField: 'password' },
@@ -132,9 +125,7 @@ passport.use('local', new LocalStrategy(
   }
 ));
 
-// ─────────────────────────────────────────────
-// Session (not used in JWT mode, but required by passport)
-// ─────────────────────────────────────────────
+
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
   try {

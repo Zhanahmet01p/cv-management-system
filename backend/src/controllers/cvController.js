@@ -1,22 +1,19 @@
 const { prisma, updateWithOptimisticLock } = require('../db');
 
-// Create/Generate CV for a position
 exports.createCV = async (req, res) => {
   const userId = req.user.id;
   const { positionId } = req.body;
 
   try {
-    // 1. Check if CV already exists
+
     const existingCV = await prisma.cV.findUnique({
       where: { userId_positionId: { userId, positionId } }
     });
     if (existingCV) return res.status(400).json({ error: 'CV already exists for this position' });
 
-    // 2. Check position access rules (Logic simplified for now)
     const position = await prisma.position.findUnique({ where: { id: positionId } });
     if (!position) return res.status(404).json({ error: 'Position not found' });
 
-    // 3. Create CV (stored as "created", but content will be looked up)
     const cv = await prisma.cV.create({
       data: {
         userId,
@@ -31,7 +28,6 @@ exports.createCV = async (req, res) => {
   }
 };
 
-// Get Rendered CV (Virtual assembly)
 exports.getCVData = async (req, res) => {
   const { id } = req.params;
   const viewerId = req.user.id;
@@ -58,8 +54,6 @@ exports.getCVData = async (req, res) => {
 
     if (!cv) return res.status(404).json({ error: 'CV not found' });
 
-    // Authorization check
-    // Candidates can only see their own CV. Recruiters/Admins can see if published or they are recruiters.
     if (viewerRole === 'CANDIDATE' && cv.userId !== viewerId) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -68,14 +62,11 @@ exports.getCVData = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // ASSEMBLY LOGIC (Killer Feature #3)
-    // Filter projects by position tags
     const positionTags = cv.position.tags.map(t => t.name.toLowerCase());
     const relevantProjects = cv.user.projects
       .filter(p => p.tags.some(tag => positionTags.includes(tag.toLowerCase())))
       .slice(0, cv.position.maxProjects);
 
-    // Filter attributes by those required in position
     const requiredAttrIds = cv.position.attributes.map(a => a.attributeId);
     const relevantAttributes = cv.user.attributeValues
       .filter(av => requiredAttrIds.includes(av.attributeId));
@@ -95,7 +86,6 @@ exports.getCVData = async (req, res) => {
   }
 };
 
-// Toggle Like (Recruiters only)
 exports.toggleLike = async (req, res) => {
   const userId = req.user.id; // Must be RECRUITER
   const { cvId } = req.params;
@@ -117,7 +107,6 @@ exports.toggleLike = async (req, res) => {
   }
 };
 
-// Publish CV
 exports.publishCV = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;

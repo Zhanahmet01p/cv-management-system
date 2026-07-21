@@ -9,7 +9,6 @@ router.post('/', cvController.createCV);
 router.get('/:id', cvController.getCVData);
 router.patch('/:id/publish', cvController.publishCV);
 
-// Likes - Recruiters only
 router.post('/:cvId/like', authorizeRoles('RECRUITER', 'ADMIN'), cvController.toggleLike);
 
 module.exports = router;

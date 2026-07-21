@@ -14,7 +14,7 @@ const AvatarModal = ({ currentUrl, onClose, onSave }) => {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      setError('Файл слишком большой (максимум 2 МБ)');
+      setError('File is too large (maximum 2 MB)');
       return;
     }
 
@@ -53,7 +53,7 @@ const AvatarModal = ({ currentUrl, onClose, onSave }) => {
         style={{ width: '100%', maxWidth: '420px', padding: '1.5rem', background: 'var(--color-surface)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 className="section-title" style={{ margin: 0, fontSize: '1.1rem' }}>{t('profile.changeAvatar', 'Изменить аватар')}</h3>
+          <h3 className="section-title" style={{ margin: 0, fontSize: '1.1rem' }}>{t('profile.changeAvatar', 'Change avatar')}</h3>
           <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>
             <X size={16} />
           </button>
@@ -66,7 +66,7 @@ const AvatarModal = ({ currentUrl, onClose, onSave }) => {
             onClick={() => setTab('file')}
             style={{ borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
           >
-            <Upload size={14} /> {t('profile.uploadFile', 'Загрузить файл')}
+            <Upload size={14} /> {t('profile.uploadFile', 'Upload file')}
           </button>
           <button
             type="button"
@@ -74,7 +74,7 @@ const AvatarModal = ({ currentUrl, onClose, onSave }) => {
             onClick={() => setTab('url')}
             style={{ borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
           >
-            <LinkIcon size={14} /> {t('profile.insertUrl', 'Вставить ссылку')}
+            <LinkIcon size={14} /> {t('profile.insertUrl', 'Insert URL')}
           </button>
         </div>
 
@@ -108,7 +108,7 @@ const AvatarModal = ({ currentUrl, onClose, onSave }) => {
 
         {tab === 'url' && (
           <div>
-            <label className="label">URL изображения</label>
+            <label className="label">Image URL</label>
             <input
               className="input"
               placeholder="https://example.com/photo.jpg"

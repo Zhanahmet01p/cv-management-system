@@ -32,7 +32,6 @@ const RequireAuth = ({ children, roles }) => {
   return children;
 };
 
-// Обработчик OAuth токена в useEffect
 const LoginSuccess = () => {
   const { login } = useAuth();
   const navigate = useNavigate();

@@ -7,7 +7,7 @@ const ProfileHeader = ({ profile, imgError, onEditAvatar, onImgError, statusClas
         <div
           style={{ position: 'relative', cursor: 'pointer' }}
           onClick={onEditAvatar}
-          title="Нажмите, чтобы изменить фото"
+          title="Click to change photo"
         >
           {profile.photoUrl && !imgError ? (
             <img

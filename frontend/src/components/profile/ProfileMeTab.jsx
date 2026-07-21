@@ -8,7 +8,7 @@ const ProfileMeTab = ({ profile, onFieldChange, onLocationChange, locParts, isCu
     <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         <div>
-          <label className="label">{t('profile.firstName', 'Имя')}</label>
+          <label className="label">{t('profile.firstName', 'First Name')}</label>
           <input
             id="input-firstName"
             className="input"
@@ -18,7 +18,7 @@ const ProfileMeTab = ({ profile, onFieldChange, onLocationChange, locParts, isCu
         </div>
 
         <div>
-          <label className="label">{t('profile.lastName', 'Фамилия')}</label>
+          <label className="label">{t('profile.lastName', 'Last Name')}</label>
           <input
             id="input-lastName"
             className="input"
@@ -28,14 +28,14 @@ const ProfileMeTab = ({ profile, onFieldChange, onLocationChange, locParts, isCu
         </div>
 
         <div>
-          <label className="label">{t('profile.country', 'Страна')}</label>
+          <label className="label">{t('profile.country', 'Country')}</label>
           <select
             id="input-country"
             className="input"
             value={locParts.country}
             onChange={e => onLocationChange(e.target.value, locParts.city)}
           >
-            <option value="">-- Выберите страну --</option>
+            <option value="">-- Select a country --</option>
             {isCustomCountry && <option value={locParts.country}>{locParts.country}</option>}
             {COUNTRIES.map(c => (
               <option key={c} value={c}>{c}</option>
@@ -44,11 +44,11 @@ const ProfileMeTab = ({ profile, onFieldChange, onLocationChange, locParts, isCu
         </div>
 
         <div>
-          <label className="label">{t('profile.city', 'Город')}</label>
+          <label className="label">{t('profile.city', 'City')}</label>
           <input
             id="input-city"
             className="input"
-            placeholder="например, Алматы"
+            placeholder="e.g. Almaty"
             value={locParts.city}
             onChange={e => onLocationChange(locParts.country, e.target.value)}
           />
@@ -56,12 +56,12 @@ const ProfileMeTab = ({ profile, onFieldChange, onLocationChange, locParts, isCu
       </div>
 
       <div>
-        <label className="label">{t('profile.bio', 'О себе / Краткое описание')}</label>
+        <label className="label">{t('profile.bio', 'About me / Short description')}</label>
         <textarea
           id="input-bio"
           className="textarea"
           rows={4}
-          placeholder="Расскажите кратко о своем опыте, ключевых навыках или профессиональных целях..."
+          placeholder="Briefly describe your experience, key skills, or professional goals..."
           value={profile.bio || ''}
           onChange={e => onFieldChange('bio', e.target.value)}
         />

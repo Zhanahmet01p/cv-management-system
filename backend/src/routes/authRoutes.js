@@ -17,10 +17,8 @@ const makeToken = (user) => jwt.sign(
   { expiresIn: '7d' }
 );
 
-// ─────────────────────────────────────────────
-// Register with email + password
-// POST /api/auth/register
-// ─────────────────────────────────────────────
+
+
 router.post('/register', async (req, res) => {
   const { email, password, firstName, lastName, role = 'CANDIDATE' } = req.body;
 
@@ -58,10 +56,8 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────
-// Login with email + password
-// POST /api/auth/login-password
-// ─────────────────────────────────────────────
+
+
 router.post('/login-password', (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err)   return next(err);
@@ -72,10 +68,8 @@ router.post('/login-password', (req, res, next) => {
   })(req, res, next);
 });
 
-// ─────────────────────────────────────────────
-// Google OAuth
-// GET /api/auth/google  →  /api/auth/google/callback
-// ─────────────────────────────────────────────
+
+
 router.get('/google', (req, res, next) => {
   if (!isGoogleAuthEnabled) {
     return res.status(501).json({ error: 'Google OAuth is not configured' });
@@ -95,10 +89,8 @@ router.get('/google/callback', (req, res, next) => {
   }
 );
 
-// ─────────────────────────────────────────────
-// Facebook OAuth
-// GET /api/auth/facebook  →  /api/auth/facebook/callback
-// ─────────────────────────────────────────────
+
+
 router.get('/facebook', (req, res, next) => {
   if (!isFacebookAuthEnabled) {
     return res.status(501).json({ error: 'Facebook OAuth is not configured' });
@@ -118,9 +110,7 @@ router.get('/facebook/callback', (req, res, next) => {
   }
 );
 
-// ─────────────────────────────────────────────
-// GET /api/auth/me  — проверить токен
-// ─────────────────────────────────────────────
+
 router.get('/me', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No token provided' });
@@ -136,10 +126,8 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────
-// Dev quick-login (no password needed, dev only)
-// POST /api/auth/dev-login
-// ─────────────────────────────────────────────
+
+
 router.post('/dev-login', async (req, res) => {
   const { role, email } = req.body;
   if (!role || !['CANDIDATE', 'RECRUITER', 'ADMIN'].includes(role)) {
@@ -173,10 +161,8 @@ router.post('/dev-login', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────
-// Legacy email-only login (kept for backwards compat)
-// POST /api/auth/login
-// ─────────────────────────────────────────────
+
+
 router.post('/login', async (req, res) => {
   const { email, role = 'CANDIDATE', firstName, lastName } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });

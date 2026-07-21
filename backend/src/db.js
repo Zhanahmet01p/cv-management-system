@@ -2,14 +2,6 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-/**
- * Helper for optimistic locking.
- * Performs an update only when the record version matches the provided version.
- * @param {string} model - Prisma model name (e.g., 'user')
- * @param {object} args - Update arguments, must include version in 'where'
- * @param {object} [args.select]
- * @param {object} [args.include]
- */
 const updateWithOptimisticLock = async (model, args) => {
   const { where, data, select, include } = args;
 
