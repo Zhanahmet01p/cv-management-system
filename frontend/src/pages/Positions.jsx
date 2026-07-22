@@ -381,8 +381,8 @@ const Positions = () => {
             ))}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
+          <div className="table-container" style={{ overflowX: 'auto' }}>
+            <table  className="data-table w-full text-left border-collapse">
               <thead>
                 <tr>
                   <th style={{ width: '3rem' }}>

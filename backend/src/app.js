@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const passport = require('passport');
 require('dotenv').config();
-require('./passport'); // Initialize passport config
+require('./passport');
 
 const attributeRoutes = require('./routes/attributeRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: (origin, cb) => cb(null, true), // allow all origins in dev
+  origin: (origin, cb) => cb(null, true),
   credentials: true,
 }));
 app.use(express.json());
@@ -35,5 +35,5 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server generated successfully on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

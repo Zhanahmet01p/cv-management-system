@@ -5,13 +5,15 @@ exports.createCV = async (req, res) => {
   const { positionId } = req.body;
 
   try {
-
     const existingCV = await prisma.cV.findUnique({
       where: { userId_positionId: { userId, positionId } }
     });
     if (existingCV) return res.status(400).json({ error: 'CV already exists for this position' });
 
-    const position = await prisma.position.findUnique({ where: { id: positionId } });
+    const position = await prisma.position.findUnique({
+      where: { id: positionId },
+      include: { attributes: true }
+    });
     if (!position) return res.status(404).json({ error: 'Position not found' });
 
     const cv = await prisma.cV.create({
@@ -21,6 +23,26 @@ exports.createCV = async (req, res) => {
         status: 'DRAFT'
       }
     });
+
+    const existingUserAttrs = await prisma.userAttributeValue.findMany({
+      where: { userId },
+      select: { attributeId: true }
+    });
+    const existingAttrIds = new Set(existingUserAttrs.map(a => a.attributeId));
+
+    const missingAttrs = position.attributes
+      .filter(pa => !existingAttrIds.has(pa.attributeId))
+      .map(pa => ({
+        userId,
+        attributeId: pa.attributeId,
+        value: ''
+      }));
+
+    if (missingAttrs.length > 0) {
+      await prisma.userAttributeValue.createMany({
+        data: missingAttrs
+      });
+    }
 
     res.status(201).json(cv);
   } catch (error) {
@@ -74,7 +96,7 @@ exports.getCVData = async (req, res) => {
     res.json({
       cv,
       assembledData: {
-        fullName: `${cv.user.firstName} ${cv.user.lastName}`,
+        fullName: `${cv.user.firstName || ''} ${cv.user.lastName || ''}`.trim(),
         location: cv.user.location,
         photoUrl: cv.user.photoUrl,
         attributes: relevantAttributes,
@@ -87,7 +109,7 @@ exports.getCVData = async (req, res) => {
 };
 
 exports.toggleLike = async (req, res) => {
-  const userId = req.user.id; // Must be RECRUITER
+  const userId = req.user.id;
   const { cvId } = req.params;
 
   try {

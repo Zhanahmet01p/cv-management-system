@@ -1,12 +1,12 @@
 import { useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Sun, Moon, Globe, Zap, LogIn } from 'lucide-react';
+import { Search, Sun, Moon, Globe, Zap, LogIn, Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useSearch } from '../context/SearchContext';
 import { useAuth } from '../context/AuthContext';
 
-const Header = () => {
+const Header = ({ onToggleMobileMenu }) => {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const { searchQuery, setSearchQuery } = useSearch();
@@ -22,13 +22,19 @@ const Header = () => {
   return (
     <header className="app-header">
       <div className="header-inner">
-        {/* Logo */}
+        <button
+          className="mobile-menu-btn"
+          onClick={onToggleMobileMenu}
+          aria-label="Toggle menu"
+        >
+          <Menu size={20} />
+        </button>
+
         <Link to="/" className="app-logo" id="header-logo">
           <Zap size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem', fill: 'currentColor' }} />
           CV·Tech
         </Link>
 
-        {/* Global Search */}
         <div className="search-input-wrap">
           <Search size={15} />
           <input
@@ -42,7 +48,6 @@ const Header = () => {
           />
         </div>
 
-        {/* Right actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
           <button
             id="btn-toggle-lang"

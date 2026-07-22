@@ -8,15 +8,11 @@ exports.getProfile = async (req, res) => {
       where: { id: userId },
       include: {
         attributeValues: {
-          include: {
-            attribute: true
-          }
+          include: { attribute: true }
         },
         projects: true,
         cvs: {
-          include: {
-            position: true
-          }
+          include: { position: true }
         }
       }
     });
@@ -54,17 +50,15 @@ exports.upsertAttributeInfo = async (req, res) => {
   const { attributeId, value, version } = req.body;
 
   try {
-
     const existing = await prisma.userAttributeValue.findUnique({
       where: { userId_attributeId: { userId, attributeId } }
     });
 
     if (existing) {
-
-      const lockVersion = version || existing.version;
+      const lockVersion = version !== undefined ? version : existing.version;
       const result = await prisma.userAttributeValue.updateMany({
         where: { userId, attributeId, version: lockVersion },
-        data: { value, version: { increment: 1 } }
+        data: { value: value ?? '', version: { increment: 1 } }
       });
 
       if (result.count === 0) {
@@ -79,7 +73,7 @@ exports.upsertAttributeInfo = async (req, res) => {
     }
 
     const created = await prisma.userAttributeValue.create({
-      data: { userId, attributeId, value: value || '', version: 1 },
+      data: { userId, attributeId, value: value ?? '', version: 1 },
       include: { attribute: true }
     });
     return res.json(created);
@@ -113,12 +107,13 @@ exports.addProject = async (req, res) => {
 };
 
 exports.updateProject = async (req, res) => {
+  const userId = req.user.id;
   const { id } = req.params;
   const { name, startDate, endDate, description, tags, version } = req.body;
 
   try {
     const updated = await updateWithOptimisticLock('project', {
-      where: { id, version },
+      where: { id, userId, version },
       data: {
         name,
         startDate: new Date(startDate),
@@ -137,15 +132,17 @@ exports.updateProject = async (req, res) => {
 };
 
 exports.deleteProject = async (req, res) => {
+  const userId = req.user.id;
   const { id } = req.params;
   const version = parseInt(req.query.version || req.body.version, 10);
 
-  if (!version) {
+  if (isNaN(version)) {
     return res.status(400).json({ error: 'VERSION_REQUIRED' });
   }
 
   try {
-    const result = await prisma.project.deleteMany({ where: { id, version } });
+    // Добавлен userId в где для проверки прав владения
+    const result = await prisma.project.deleteMany({ where: { id, userId, version } });
     if (result.count === 0) {
       return res.status(409).json({ error: 'VERSION_CONFLICT' });
     }

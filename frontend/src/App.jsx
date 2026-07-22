@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { SearchProvider } from './context/SearchContext.jsx';
@@ -55,11 +55,22 @@ const LoginSuccess = () => {
 };
 
 const AppLayout = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Автоматическое закрытие меню при смене страницы
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <>
-      <Header />
+      <Header onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)} />
       <div className="page-wrap" style={{ alignItems: 'flex-start' }}>
-        <NavBar />
+        <NavBar 
+          isOpen={isMobileMenuOpen} 
+          onClose={() => setIsMobileMenuOpen(false)} 
+        />
         <main className="page-main">
           <Routes>
             <Route path="/" element={<Home />} />

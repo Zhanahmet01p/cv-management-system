@@ -4,6 +4,8 @@ import { fetchCV, publishCV, toggleLike, createComment, saveAttributeValue } fro
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
 import { Heart, MessageSquare, Printer, Send, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
+import { CvTemplate } from '../components/CvTemplate.jsx';
 
 const POLL_INTERVAL = 4000;
 
@@ -21,8 +23,11 @@ const CVView = () => {
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [publishMsg, setPublishMsg] = useState('');
+  
   const pollRef = useRef(null);
+  const cvTemplateRef = useRef(null); 
 
   const isRecruiter = user?.role === 'RECRUITER' || user?.role === 'ADMIN';
   const isAdmin = user?.role === 'ADMIN';
@@ -47,9 +52,7 @@ const CVView = () => {
   }, [id, user?.id]);
 
   useEffect(() => {
-
     load(false);
-
     pollRef.current = setInterval(() => {
       load(true);
     }, POLL_INTERVAL);
@@ -101,7 +104,6 @@ const CVView = () => {
     if (!comment.trim()) return;
     setSending(true);
     try {
-
       await createComment(data.cv.positionId, comment);
       setComment('');
       await load(true);
@@ -112,7 +114,33 @@ const CVView = () => {
     }
   };
 
-  const handlePrint = () => window.print();
+
+  const handleDownloadPdf = () => {
+    if (!cvTemplateRef.current || downloadingPdf) return;
+
+    setDownloadingPdf(true);
+    const element = cvTemplateRef.current;
+    const fileName = `CV_${data?.assembledData?.fullName || 'Candidate'}.pdf`;
+
+    const opt = {
+      margin:       [10, 10, 10, 10], 
+      filename:     fileName,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => setDownloadingPdf(false))
+      .catch((err) => {
+        console.error('PDF generation error:', err);
+        setDownloadingPdf(false);
+      });
+  };
 
   if (loading) {
     return (
@@ -145,7 +173,14 @@ const CVView = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {}
+      
+
+      <CvTemplate
+  ref={cvTemplateRef}
+  profile={data?.assembledData}
+  position={data?.cv?.position}
+/>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Link to="/profile" className="btn btn-ghost btn-sm">
           <ArrowLeft size={15} /> {t('common.back')}
@@ -163,8 +198,18 @@ const CVView = () => {
             </button>
           )}
 
-          <button id="btn-print-cv" className="btn btn-outline btn-sm" onClick={handlePrint}>
-            <Printer size={15} /> {t('cv.printPdf')}
+          <button
+            id="btn-print-cv"
+            className="btn btn-outline btn-sm"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+          >
+            {downloadingPdf ? (
+              <Loader2 size={15} className="spin" />
+            ) : (
+              <Printer size={15} />
+            )}
+            {downloadingPdf ? 'Генерация PDF...' : t('cv.printPdf')}
           </button>
 
           {canEdit && cv.status === 'DRAFT' && (
@@ -202,7 +247,7 @@ const CVView = () => {
         </div>
       )}
 
-      {}
+
       <div className="tabs">
         <button
           className={`tab${activeTab === 'cv' ? ' active' : ''}`}
@@ -224,11 +269,9 @@ const CVView = () => {
         </button>
       </div>
 
-      {}
+
       {activeTab === 'cv' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
-          {}
           <div className="card" style={{ padding: '1.75rem' }}>
             <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {assembledData.photoUrl && (
@@ -255,7 +298,6 @@ const CVView = () => {
             </div>
           </div>
 
-          {}
           {(assembledData.attributes || []).length > 0 && (
             <div className="card" style={{ overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.25rem 0.5rem', borderBottom: '1px solid var(--color-border)' }}>
@@ -281,7 +323,7 @@ const CVView = () => {
                         <td>
                           {canEdit ? (
                             <input
-                              key={`${av.id || i}-${av.version || valString}`} // A unique key keeps defaultValue in sync during polling
+                              key={`${av.id || i}-${av.version || valString}`}
                               className={`input${isEmpty ? ' attr-empty' : ''}`}
                               style={{ padding: '0.3rem 0.625rem', fontSize: '0.85rem' }}
                               placeholder={isEmpty ? `⚠ ${t('cv.emptyAttr')}` : ''}
@@ -306,7 +348,6 @@ const CVView = () => {
             </div>
           )}
 
-          {}
           {(assembledData.projects || []).length > 0 && (
             <div className="card" style={{ padding: '1.25rem' }}>
               <h2 className="section-title" style={{ marginBottom: '1rem' }}>Projects</h2>
@@ -349,7 +390,6 @@ const CVView = () => {
         </div>
       )}
 
-      {}
       {activeTab === 'disc' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

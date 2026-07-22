@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -25,29 +26,27 @@ enum AttributeType {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  role          Role      @default(CANDIDATE)
-  firstName     String?
-  lastName      String?
-  location      String?
-  photoUrl      String?
-  passwordHash  String?
-  googleId      String?   @unique
-  facebookId    String?   @unique
-  version       Int       @default(1)
-  blocked       Boolean   @default(false)
+  id              String               @id @default(uuid())
+  email           String               @unique
+  role            Role                 @default(CANDIDATE)
+  firstName       String?
+  lastName        String?
+  location        String?
+  photoUrl        String?
+  passwordHash    String?
+  googleId        String?              @unique
+  facebookId      String?              @unique
+  version         Int                  @default(1)
+  blocked         Boolean              @default(false)
 
-  projects      Project[]
-  cvs           CV[]
+  projects        Project[]
+  cvs             CV[]
   attributeValues UserAttributeValue[]
-  comments      Comment[]
-  likes         Like[]
+  comments        Comment[]
+  likes           Like[]
   
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([email])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 }
 
 model Attribute {
@@ -164,3 +163,4 @@ model Like {
 
   @@id([cvId, userId])
 }
+

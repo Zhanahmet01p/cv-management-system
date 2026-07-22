@@ -3,7 +3,7 @@ const router = express.Router();
 const profileController = require('../controllers/profileController');
 const { authenticateJWT } = require('../middleware/auth');
 
-router.use(authenticateJWT); // All profile routes require authentication
+router.use(authenticateJWT); 
 
 router.get('/', profileController.getProfile);
 router.patch('/me', profileController.updateMe);

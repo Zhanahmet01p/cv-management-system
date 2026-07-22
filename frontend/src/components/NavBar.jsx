@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
@@ -8,125 +9,141 @@ import {
   ShieldCheck,
   LogOut,
   LogIn,
-  Library
+  Library,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 
-const NavBar = () => {
+const NavBar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = () => {
     logout();
+    if (onClose) onClose();
     navigate('/login');
   };
 
+  const handleLinkClick = () => {
+    if (onClose) onClose();
+  };
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => !prev);
+  };
+
   const linkClass = ({ isActive }) =>
-    `nav-link${isActive ? ' active' : ''}`;
+    `modern-nav-link${isActive ? ' active' : ''}`;
 
   return (
-    <nav 
-      style={{
-        background: 'var(--color-surface)',
-        borderRight: '1px solid var(--color-border)',
-        padding: '1rem 0.75rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-        minHeight: 'calc(100vh - 60px)',
-        position: 'sticky',
-        top: '60px',
-        height: 'fit-content',
-      }}
-      className="nav-sidebar"
-    >
-      <NavLink to="/" end className={linkClass} id="nav-home">
-        <LayoutDashboard size={16} />
-        {t('nav.home') || 'Dashboard'}
-      </NavLink>
+    <>
+      <div 
+        className={`sidebar-overlay ${isOpen ? 'active' : ''} ` } 
+        onClick={onClose} 
+      />
 
-      <NavLink to="/positions" className={linkClass} id="nav-positions">
-        <Briefcase size={16} />
-        {t('nav.positions') || 'Positions'}
-      </NavLink>
+      <aside className={`sidebar-nav ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-mobile-header">
+          <span className="sidebar-mobile-title">Navigation</span>
+          <button onClick={onClose} className="btn-icon-close" aria-label="Close navigation">
+            <X size={18} />
+          </button>
+        </div>
 
-      {user && (
-        <NavLink to="/profile" className={linkClass} id="nav-profile">
-          <User size={16} />
-          {t('nav.profile') || 'Profile'}
-        </NavLink>
-      )}
+        <button 
+          onClick={toggleCollapse} 
+          className="desktop-collapse-btn"
+          aria-label="Toggle navigation width"
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
 
-      {(user?.role === 'ADMIN' || user?.role === 'RECRUITER') && (
-        <NavLink to="/admin" end className={linkClass} id="nav-admin">
-          <Library size={16} />
-          {t('nav.admin') || 'Attributes'}
-        </NavLink>
-      )}
+        <div className="sidebar-content">
+          <div className="nav-group">
+            <span className="nav-group-title">Main</span>
+            
+            <NavLink to="/" end className={linkClass} onClick={handleLinkClick} id="nav-home" title={isCollapsed ? t('nav.home') : ''}>
+              <LayoutDashboard size={18} className="nav-icon" />
+              <span className="nav-label">{t('nav.home')}</span>
+            </NavLink>
 
-      {user?.role === 'ADMIN' && (
-        <NavLink to="/admin/users" className={linkClass} id="nav-users">
-          <ShieldCheck size={16} />
-          {t('nav.users') || 'Users'}
-        </NavLink>
-      )}
+            <NavLink to="/positions" className={linkClass} onClick={handleLinkClick} id="nav-positions" title={isCollapsed ? t('nav.positions') : ''}>
+              <Briefcase size={18} className="nav-icon" />
+              <span className="nav-label">{t('nav.positions')}</span>
+            </NavLink>
 
-      <div style={{ flex: 1 }} />
-      <hr className="divider" style={{ margin: '0.75rem 0' }} />
-
-      {user ? (
-        <div>
-          {/* User info */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.625rem',
-            padding: '0.5rem 0.875rem', marginBottom: '0.5rem'
-          }}>
-            {user.photoUrl ? (
-              <img
-                src={user.photoUrl}
-                alt="avatar"
-                className="avatar"
-                style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}
-              />
-            ) : (
-              <div className="avatar" style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}>
-                {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
-              </div>
+            {user && (
+              <NavLink to="/profile" className={linkClass} onClick={handleLinkClick} id="nav-profile" title={isCollapsed ? t('nav.profile') : ''}>
+                <User size={18} className="nav-icon" />
+                <span className="nav-label">{t('nav.profile')}</span>
+              </NavLink>
             )}
-            <div style={{ minWidth: 0 }}>
-              <div style={{
-                fontSize: '0.8rem', fontWeight: 600,
-                color: 'var(--color-text)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
-                {user.firstName || user.email?.split('@')[0]}
-              </div>
-              <div>
-                <span className={`badge badge-${user.role === 'ADMIN' ? 'danger' : user.role === 'RECRUITER' ? 'accent' : 'primary'}`}
-                  style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+          </div>
+
+          {(user?.role === 'ADMIN' || user?.role === 'RECRUITER') && (
+            <div className="nav-group">
+              <span className="nav-group-title">Management</span>
+              
+              <NavLink to="/admin" className={linkClass} onClick={handleLinkClick} id="nav-admin" title={isCollapsed ? t('nav.admin') : ''}>
+                <Library size={18} className="nav-icon" />
+                <span className="nav-label">{t('nav.admin')}</span>
+              </NavLink>
+
+              {user?.role === 'ADMIN' && (
+                <NavLink to="/admin/users" className={linkClass} onClick={handleLinkClick} id="nav-users" title={isCollapsed ? t('nav.users') : ''}>
+                  <ShieldCheck size={18} className="nav-icon" />
+                  <span className="nav-label">{t('nav.users')}</span>
+                </NavLink>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="sidebar-footer">
+          {user ? (
+            <div className="user-profile-card">
+              {user.photoUrl ? (
+                <img
+                  src={user.photoUrl}
+                  alt="avatar"
+                  className="user-avatar-img"
+                />
+              ) : (
+                <div className="user-avatar-placeholder">
+                  {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+                </div>
+              )}
+
+              <div className="user-info">
+                <span className="user-name">
+                  {user.firstName || user.email.split('@')[0]}
+                </span>
+                <span className={`badge badge-role badge-${user.role === 'ADMIN' ? 'danger' : user.role === 'RECRUITER' ? 'accent' : 'primary'}`}>
                   {user.role}
                 </span>
               </div>
-            </div>
-          </div>
 
-          <button
-            id="btn-logout"
-            onClick={handleLogout}
-            className="nav-link"
-            style={{ width: '100%', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
-          >
-            <LogOut size={16} />
-            {t('nav.logout') || 'Logout'}
-          </button>
+              <button
+                id="btn-logout"
+                onClick={handleLogout}
+                className="btn-logout-icon"
+                title={t('nav.logout')}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <NavLink to="/login" className={linkClass} onClick={handleLinkClick} id="nav-login" title={isCollapsed ? t('nav.login') : ''}>
+              <LogIn size={18} className="nav-icon" />
+              <span className="nav-label">{t('nav.login')}</span>
+            </NavLink>
+          )}
         </div>
-      ) : (
-        <NavLink to="/login" className={linkClass} id="nav-login">
-          <LogIn size={16} />
-          {t('nav.login') || 'Login'}
-        </NavLink>
-      )}
-    </nav>
+      </aside>
+    </>
   );
 };
 
