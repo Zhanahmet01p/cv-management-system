@@ -8,7 +8,8 @@ import {
   UserPlus, LogIn, Eye, EyeOff
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cv-management-system-ux49.onrender.com';
+const API_BASE = RAW_API_URL.replace(/\/$/, '');
 
 const DEV_ROLES = [
   { role: 'CANDIDATE', icon: <User size={16} />,       color: 'var(--color-primary)' },
