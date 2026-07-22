@@ -58,7 +58,6 @@ const AppLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  // Автоматическое закрытие меню при смене страницы
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
