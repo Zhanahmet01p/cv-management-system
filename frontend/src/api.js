@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://cv-management-system-ux49.onrender.com/';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'https://cv-management-system-ux49.onrender.com';
+const API_BASE = rawApiUrl.replace(/\/$/, '');
 
 const api = axios.create({
   baseURL: API_BASE,
