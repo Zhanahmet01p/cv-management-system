@@ -1,16 +1,56 @@
-# React + Vite
+# 💼 CV Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Курсовой проект по дисциплине **«Промышленная разработка ПО»**.
 
-Currently, two official plugins are available:
+Веб-приложение для удобного управления резюме (CV), поиска вакансий и взаимодействия кандидатов с рекрутерами. Платформа позволяет создавать структурированные профили, привязывать проекты и настраивать атрибуты для максимального соответствия требованиям работодателей.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+🚀 **Задеплоенный проект (Live Demo):** [https://cv-management-system-ux49.onrender.com](https://cv-management-system-ux49.onrender.com)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠 Технологический стек
 
-## Expanding the ESLint configuration
+* **Frontend:** React, TypeScript, HTML5 / CSS3
+* **Backend:** Node.js, Express / Prisma ORM
+* **База данных:** PostgreSQL / Supabase
+* **Аутентификация:** OAuth 2.0 (Google, Facebook)
+* **Деплой & Хостинг:** Render
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## ✨ Основной функционал
+
+### 👥 Ролевая модель
+* **Кандидат (CANDIDATE):**
+  * Создание и редактирование CV (в статусах *DRAFT* / *PUBLISHED*).
+  * Добавление проектов в портфолио (с тегами и описанием).
+  * Заполнение пользовательских атрибутов (уровень английского, GPA, опыт и т.д.).
+* **Рекрутер / Админ (RECRUITER / ADMIN):**
+  * Просмотр опубликованных CV кандидатов.
+  * Оставление фидбека (комментариев) и лайков к CV.
+  * Управление вакансиями (Positions), тегами и обязательными атрибутами.
+
+### 🔑 Авторизация и безопасность
+* Вход через социальные сети (**Google OAuth 2.0** и **Facebook Login**).
+* Ролевой доступ к функционалу приложения.
+
+---
+
+## 📂 Структура базы данных
+
+База данных включает следующие ключевые сущности:
+* **User** — пользователи системы (кандидаты, рекрутеры, админы).
+* **Position** & **PositionTag** — вакансии и их стековые теги.
+* **Attribute** & **UserAttributeValue** — динамические атрибуты пользователей (язык, опыт, навыки).
+* **Project** — проекты в портфолио кандидатов.
+* **CV** — резюме кандидатов, привязанные к вакансиям.
+* **Comment** & **Like** — фидбек от рекрутеров.
+
+---
+
+## 🚀 Локальный запуск и развертывание
+
+### 1. Клонирование репозитория
+```bash
+git clone [https://github.com/ВАШ_USERNAME/CV-Management-System.git](https://github.com/ВАШ_USERNAME/CV-Management-System.git)
+cd CV-Management-System

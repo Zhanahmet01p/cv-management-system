@@ -3,19 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
 import {
-  Zap, ShieldCheck, User, Briefcase,
-  Globe, Users, Mail, Lock, ChevronRight, Loader2,
-  UserPlus, LogIn, Eye, EyeOff
+  Zap, Loader2, UserPlus, LogIn, Eye, EyeOff
 } from 'lucide-react';
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cv-management-system-ux49.onrender.com';
 const API_BASE = RAW_API_URL.replace(/\/$/, '');
-
-const DEV_ROLES = [
-  { role: 'CANDIDATE', icon: <User size={16} />,       color: 'var(--color-primary)' },
-  { role: 'RECRUITER', icon: <Briefcase size={16} />,  color: 'var(--color-accent)'  },
-  { role: 'ADMIN',     icon: <ShieldCheck size={16} />, color: 'var(--color-danger)' },
-];
 
 const Input = ({ label, note, rightIcon, ...props }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -54,7 +46,7 @@ const Input = ({ label, note, rightIcon, ...props }) => (
 );
 
 const Login = () => {
-  const { user, devLogin, login } = useAuth();
+  const { user, login } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -168,19 +160,6 @@ const Login = () => {
     window.location.href = `${API_BASE}/api/auth/${provider}`;
   };
 
-  const handleDevLogin = async (devRole) => {
-    setLoading(devRole);
-    setError('');
-    try {
-      await devLogin(devRole);
-      navigate('/', { replace: true });
-    } catch {
-      setError(t('login.loginFailed'));
-    } finally {
-      setLoading('');
-    }
-  };
-
   const tabStyle = (tab) => ({
     padding: '0.45rem 1.1rem',
     borderRadius: 'var(--radius)',
@@ -200,7 +179,7 @@ const Login = () => {
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', minHeight: '80vh', gap: '1.25rem', padding: '2rem 1rem'
     }}>
-      {}
+      {/* Заголовок */}
       <div style={{ textAlign: 'center', maxWidth: '480px' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -219,7 +198,7 @@ const Login = () => {
         </p>
       </div>
 
-      {}
+      {/* Переключатель вкладок */}
       <div style={{
         display: 'flex', gap: '0.2rem', padding: '0.3rem',
         background: 'var(--color-surface-2)', borderRadius: 'var(--radius-lg)',
@@ -233,18 +212,13 @@ const Login = () => {
           <UserPlus size={13} style={{ display: 'inline', marginRight: '0.3rem' }} />
           {t('login.tabRegister')}
         </button>
-        <button style={tabStyle('dev')} onClick={() => { setActiveTab('dev'); clearMessages(); }}>
-          <Lock size={13} style={{ display: 'inline', marginRight: '0.3rem' }} />
-          {t('login.tabDev')}
-        </button>
       </div>
 
       <div className="card" style={{ width: '100%', maxWidth: '440px', padding: '1.75rem' }}>
 
-        {}
+        {/* Вкладка Вход */}
         {activeTab === 'signin' && (
           <>
-            {}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1.25rem' }}>
               <button
                 id="btn-google-login"
@@ -275,7 +249,6 @@ const Login = () => {
               </button>
             </div>
 
-            {}
             <div style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               marginBottom: '1.25rem', color: 'var(--color-text-3)', fontSize: '0.8rem'
@@ -285,7 +258,6 @@ const Login = () => {
               <hr className="divider" style={{ flex: 1 }} />
             </div>
 
-            {}
             <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <Input
                 id="input-signin-email"
@@ -345,11 +317,9 @@ const Login = () => {
           </>
         )}
 
-        {}
+        {/* Вкладка Регистрация */}
         {activeTab === 'signup' && (
           <>
-
-            {}
             <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <Input
                 id="input-reg-email"
@@ -456,60 +426,6 @@ const Login = () => {
           </>
         )}
 
-        {}
-        {activeTab === 'dev' && (
-          <div>
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)', marginBottom: '0.2rem' }}>
-                {t('login.devTitle')}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-3)' }}>
-                {t('login.devSubtitle')}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {DEV_ROLES.map(({ role: devRole, icon, color }) => {
-                const labels = { CANDIDATE: t('login.asCandidate'), RECRUITER: t('login.asRecruiter'), ADMIN: t('login.asAdmin') };
-                return (
-                  <button
-                    key={devRole}
-                    id={`btn-dev-${devRole.toLowerCase()}`}
-                    className="btn btn-outline"
-                    onClick={() => handleDevLogin(devRole)}
-                    disabled={!!loading}
-                    style={{
-                      justifyContent: 'flex-start', gap: '0.625rem',
-                      color, borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
-                      padding: '0.65rem 1rem'
-                    }}
-                  >
-                    {loading === devRole
-                      ? <Loader2 size={16} className="spin" />
-                      : <span style={{ color }}>{icon}</span>
-                    }
-                    {labels[devRole]}
-                    {!loading && (
-                      <span className="badge badge-neutral" style={{ marginLeft: 'auto', fontSize: '0.65rem' }}>
-                        {devRole}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {error && (
-              <div className="alert alert-danger" style={{ marginTop: '0.75rem', fontSize: '0.82rem' }}>
-                {error}
-              </div>
-            )}
-
-            <p style={{ fontSize: '0.72rem', color: 'var(--color-text-3)', marginTop: '1rem', textAlign: 'center' }}>
-              {t('login.devNote')}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
