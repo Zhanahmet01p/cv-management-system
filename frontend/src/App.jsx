@@ -122,9 +122,16 @@ const App = () => (
         <BrowserRouter>
           <AppLayout />
         </BrowserRouter>
+        <button 
+  onClick={() => setIsSupportOpen(true)}
+  style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer' }}
+>
+  💬 Create Support Ticket
+</button>
       </SearchProvider>
     </AuthProvider>
   </ThemeProvider>
+  
 );
 
 export default App;
