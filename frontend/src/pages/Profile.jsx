@@ -25,7 +25,7 @@ const TABS = [
 const EMPTY_PROJECT = { name: '', startDate: '', endDate: '', description: '', tags: '' };
 
 const Profile = () => {
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { t } = useTranslation();
   const [profile, setProfile] = useState(null);
   const [attributes, setAttributes] = useState([]);
@@ -40,6 +40,50 @@ const Profile = () => {
   const [imgError, setImgError] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const dirty_ref = useRef(false);
+
+  // Salesforce State
+  const [sfCompany, setSfCompany] = useState('');
+  const [sfPhone, setSfPhone] = useState('');
+  const [sfLoading, setSfLoading] = useState(false);
+  const [sfMsg, setSfMsg] = useState('');
+
+  // Base API URL
+  const RAW_API_URL = import.meta.env.VITE_API_URL || 'https://cv-management-system-ux49.onrender.com';
+  const API_BASE = RAW_API_URL.replace(/\/$/, '');
+
+  const handleExportToSalesforce = async (e) => {
+    e.preventDefault();
+    setSfLoading(true);
+    setSfMsg('');
+    try {
+      const res = await fetch(`${API_BASE}/api/salesforce/export-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          companyName: sfCompany,
+          phone: sfPhone,
+          positionTitle: user?.role || 'Candidate',
+          userEmail: profile?.email || user?.email || '',
+          firstName: profile?.firstName || user?.firstName || '',
+          lastName: profile?.lastName || user?.lastName || ''
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Export failed');
+      
+      setSfMsg('✅ User exported to Salesforce successfully!');
+      alert('User exported to Salesforce successfully!');
+    } catch (err) {
+      setSfMsg(`❌ ${err.message}`);
+      alert(err.message);
+    } finally {
+      setSfLoading(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -230,13 +274,53 @@ const Profile = () => {
       <ProfileTabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} t={t} />
 
       {activeTab === 'me' && (
-        <ProfileMeTab
-          profile={profile}
-          onFieldChange={handleFieldChange}
-          onLocationChange={handleLocationChange}
-          locParts={locParts}
-          isCustomCountry={isCustomCountry}
-        />
+        <>
+          <ProfileMeTab
+            profile={profile}
+            onFieldChange={handleFieldChange}
+            onLocationChange={handleLocationChange}
+            locParts={locParts}
+            isCustomCountry={isCustomCountry}
+          />
+
+          {/* Salesforce Integration Form */}
+          <div className="card" style={{ padding: '1.5rem', marginTop: '1rem', border: '1px solid #e2e8f0', borderRadius: '12px', backgroundColor: 'var(--color-surface, #fff)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '0.5rem' }}>Sync with Salesforce CRM</h3>
+            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+              Export your user details to create an Account and linked Contact in Salesforce.
+            </p>
+
+            <form onSubmit={handleExportToSalesforce} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.25rem' }}>Company Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Corp"
+                  value={sfCompany}
+                  onChange={(e) => setSfCompany(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccc' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.25rem' }}>Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="+1 234 567 890"
+                  value={sfPhone}
+                  onChange={(e) => setSfPhone(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccc' }}
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={sfLoading} style={{ alignSelf: 'flex-start' }}>
+                {sfLoading ? 'Exporting...' : 'Export to Salesforce'}
+              </button>
+
+              {sfMsg && <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>{sfMsg}</div>}
+            </form>
+          </div>
+        </>
       )}
 
       {activeTab === 'info' && (
@@ -278,7 +362,6 @@ const Profile = () => {
 
       {activeTab === 'cvs' && <ProfileCVsTab profile={profile} t={t} />}
 
-      {}
       {showAvatarModal && (
         <AvatarModal
           currentUrl={profile.photoUrl}
