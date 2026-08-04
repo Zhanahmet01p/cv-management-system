@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { fetchCV, publishCV, toggleLike, createComment, saveAttributeValue } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTranslation } from 'react-i18next';
-import { Heart, MessageSquare, Printer, Send, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { Heart, MessageSquare, Printer, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { CvTemplate } from '../components/CvTemplate.jsx';
 import { Lasttab } from '../components/Lasttab.jsx';
@@ -115,7 +115,6 @@ const CVView = () => {
     }
   };
 
-
   const handleDownloadPdf = () => {
     if (!cvTemplateRef.current || downloadingPdf) return;
 
@@ -174,13 +173,11 @@ const CVView = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      
-
       <CvTemplate
-  ref={cvTemplateRef}
-  profile={data?.assembledData}
-  position={data?.cv?.position}
-/>
+        ref={cvTemplateRef}
+        profile={data?.assembledData}
+        position={data?.cv?.position}
+      />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Link to="/profile" className="btn btn-ghost btn-sm">
@@ -248,7 +245,6 @@ const CVView = () => {
         </div>
       )}
 
-
       <div className="tabs">
         <button
           className={`tab${activeTab === 'cv' ? ' active' : ''}`}
@@ -269,7 +265,6 @@ const CVView = () => {
           )}
         </button>
       </div>
-
 
       {activeTab === 'cv' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -392,7 +387,14 @@ const CVView = () => {
       )}
 
       {activeTab === 'disc' && (
-        <Lasttab  comment={comment} setComment={setComment} sending={sending} handleSendComment={handleSendComment} />
+        <Lasttab 
+          comments={comments}
+          user={user}
+          comment={comment} 
+          setComment={setComment} 
+          sending={sending} 
+          handleSendComment={handleSendComment} 
+        />
       )}
     </div>
   );
